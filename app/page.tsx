@@ -147,9 +147,10 @@ export default function Chat() {
                 <Avatar
                   className="size-8 ring-1 ring-primary"
                 >
-                  <AvatarImage src="/logo.png" />
+                  {/* FIX: UPDATED LOGO HERE */}
+                  <AvatarImage src="https://i.ibb.co/ccdTwRh4/GlowCast.png" />
                   <AvatarFallback>
-                    <Image src="/logo.png" alt="Logo" width={36} height={36} />
+                    <Image src="https://i.ibb.co/ccdTwRh4/GlowCast.png" alt="Logo" width={36} height={36} />
                   </AvatarFallback>
                 </Avatar>
                 <p className="tracking-tight">Chat with {AI_NAME}</p>
@@ -175,7 +176,15 @@ export default function Chat() {
                 <MessageWall messages={messages} status={status} durations={durations} onDurationChange={handleDurationChange} />
                 {status === "submitted" && (
                   <div className="flex justify-start max-w-3xl w-full">
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    <div className="flex gap-3">
+                        {/* Added a mini-logo for the loading state too just in case */}
+                        <Avatar className="size-8 ring-1 ring-primary">
+                            <AvatarImage src="https://i.ibb.co/ccdTwRh4/GlowCast.png" />
+                        </Avatar>
+                        <div className="flex items-center">
+                            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                        </div>
+                    </div>
                   </div>
                 )}
               </>
