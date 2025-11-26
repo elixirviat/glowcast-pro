@@ -14,3 +14,7 @@ Tell me:
 I will analyze the weather and check your routine for safety.`;
 
 export const CLEAR_CHAT_TEXT = "New Trip";
+
+// --- REQUIRED SYSTEM SETTINGS (DO NOT DELETE) ---
+export const PINECONE_INDEX_NAME = "my-ai"; // Ensure this matches your Pinecone Index Name
+export const PINECONE_TOP_K = 5;            // How many results to retrieve (3-5 is standard)
