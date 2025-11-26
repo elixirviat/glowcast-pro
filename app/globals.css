@@ -44,40 +44,57 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.995 0 0);
-  --foreground: oklch(0.145 0 0);
+  --radius: 0.75rem; /* Rounder, cuter corners */
+  
+  /* 1. BACKGROUND: Baby Pink */
+  --background: oklch(0.97 0.02 350); 
+  --foreground: oklch(0.25 0.05 350); /* Dark Pink/Grey text */
+
+  /* White Cards */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.25 0.05 350);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.1 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
+  --popover-foreground: oklch(0.25 0.05 350);
+
+  /* 2. BUTTONS: Lavender/Light Purple */
+  --primary: oklch(0.82 0.1 280); 
+  --primary-foreground: oklch(0.3 0.1 280); /* Dark purple text on button */
+
+  --secondary: oklch(0.96 0.02 350);
+  --secondary-foreground: oklch(0.25 0.05 350);
+
+  --muted: oklch(0.96 0.01 350);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+
+  --accent: oklch(0.96 0.02 350);
+  --accent-foreground: oklch(0.25 0.05 350);
+
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+
+  /* 3. OUTLINES: Light Blue */
+  --border: oklch(0.88 0.05 230);
+  --input: oklch(0.88 0.05 230);
+  --ring: oklch(0.8 0.1 230); /* Glows blue when clicked */
+
+  /* Charts (Optional) */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+
+  /* Sidebar */
+  --sidebar: oklch(0.98 0.01 350); /* Very light pink */
+  --sidebar-foreground: oklch(0.25 0.05 350);
+  --sidebar-primary: oklch(0.82 0.1 280);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.96 0.02 350);
+  --sidebar-accent-foreground: oklch(0.25 0.05 350);
+  --sidebar-border: oklch(0.88 0.05 230); /* Blue border */
+  --sidebar-ring: oklch(0.8 0.1 230);
 }
 
+/* Dark mode - Keeping this standard dark for now to avoid breaking it */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
