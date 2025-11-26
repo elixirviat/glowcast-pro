@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AI_NAME } from "@/lib/config";
-import { cn } from "@/lib/utils";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: AI_NAME, // This automatically uses "GlowCast Pro" from your config file
+  title: "GlowCast Pro",
   description: "Your personalized travel beauty advisor.",
   icons: {
-    // CHANGE THIS LINK to your own image link if you want!
-    icon: 'https://ibb.co/zhwfFCVq', 
+    // This sets the little icon in the browser tab
+    icon: 'https://cdn-icons-png.flaticon.com/512/616/616490.png', 
   },
 };
 
@@ -22,7 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={cn(inter.className, "bg-background min-h-screen font-sans antialiased")}>
+      <body
+        className={`${inter.variable} ${geistMono.variable} antialiased`}
+      >
         {children}
       </body>
     </html>
