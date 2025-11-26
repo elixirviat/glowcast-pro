@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description: "Your personalized travel beauty advisor.",
   icons: {
     // This sets the little icon in the browser tab
-    icon: 'https://cdn-icons-png.flaticon.com/512/616/616490.png', 
+    icon: 'https://i.ibb.co/ccdTwRh4/GlowCast.png', 
   },
 };
 
