@@ -12,12 +12,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// --- METADATA SETTINGS (Favicon & Title) ---
 export const metadata: Metadata = {
   title: "GlowCast Pro",
   description: "Your personalized travel beauty advisor.",
   icons: {
-    // This sets the little icon in the browser tab
-    icon: 'https://i.ibb.co/ccdTwRh4/GlowCast.png', 
+    icon: 'https://i.ibb.co/ccdTwRh4/GlowCast.png',
   },
 };
 
