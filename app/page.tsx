@@ -18,7 +18,7 @@ import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UIMessage } from "ai";
 import { useEffect, useState, useRef } from "react";
-import { AI_NAME, CLEAR_CHAT_TEXT, OWNER_NAME, WELCOME_MESSAGE } from "@/config";
+import { AI_NAME, CLEAR_CHAT_TEXT, WELCOME_MESSAGE } from "../config";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -59,10 +59,11 @@ const STORAGE_KEY = 'chat-messages';
 // --- HELPER: Get clean text ---
 const getMessageText = (message: UIMessage): string => {
   if (!message) return "";
-  // Check common text properties
-  if (typeof message.content === 'string') return message.content.toLowerCase();
   
-  // Safe check for parts array
+  // FIX: Cast to 'any' to avoid TypeScript error if strict 'content' property is missing on type
+  const content = (message as any).content;
+  if (typeof content === 'string') return content.toLowerCase();
+  
   if (message.parts && Array.isArray(message.parts)) {
     return message.parts
       .filter(p => p.type === 'text')
@@ -114,7 +115,6 @@ export default function Chat() {
     const stored = loadMessagesFromStorage();
 
     if (stored.messages.length > 0) {
-      // FIX: 'as any' bypasses the strict type error
       setMessages(stored.messages as any);
       setDurations(stored.durations);
     } else {
@@ -164,7 +164,7 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
-  // --- LOGIC ENGINE ---
+  // --- LOGIC ENGINE (IMPROVED) ---
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null;
   const userText = userLastMessage && userLastMessage.role === "user" ? getMessageText(userLastMessage) : "";
@@ -172,15 +172,28 @@ export default function Chat() {
 
   const showLocations = messages.length === 1 && messages[0].role === "assistant";
 
-  // Logic: Detect questions
+  // 1. Detect Category Selection Question
   const isCategoryQuestion = aiText.includes("skincare") && aiText.includes("makeup") && aiText.includes("both");
+
+  // 2. Detect Clarifying/Interview Questions (NEW)
+  // Ensures chips DON'T show up when AI asks about skin type/activities/finish
+  const isClarifyingQuestion = 
+    aiText.includes("skin type") || 
+    aiText.includes("oily") || 
+    aiText.includes("activities") || 
+    aiText.includes("finish") || 
+    aiText.includes("agenda") ||
+    aiText.includes("matte");
   
+  // 3. Detect Inventory Question (FIXED)
+  // Removed "list" to prevent false positives when AI says "Great list!"
   const isInventoryQuestion = 
-    aiText.includes("product") || 
-    aiText.includes("packing") || 
-    aiText.includes("list") || 
-    aiText.includes("stash") || 
-    aiText.includes("bring");
+    !isClarifyingQuestion && (
+      aiText.includes("product") || 
+      aiText.includes("packing") || 
+      aiText.includes("stash") || 
+      aiText.includes("bring")
+    );
     
   const isFinalReport = aiText.includes("forecast") || aiText.includes("strategy");
 
@@ -261,7 +274,7 @@ export default function Chat() {
             
             <div className="max-w-3xl w-full space-y-3 bg-background/80 backdrop-blur-md p-4 rounded-xl border border-border shadow-lg">
               
-              {/* 1. LOCATION CHIPS */}
+              {/* 1. LOCATION CHIPS (PILLS) */}
               {showLocations && (
                 <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
                   {LOCATION_SUGGESTIONS.map((action, index) => (
@@ -277,20 +290,17 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* 2. CATEGORY TILES */}
+              {/* 2. CATEGORY BUTTONS (PILLS) */}
               {showCategoryButtons && (
-                <div className="flex gap-4 justify-center w-full pb-2">
+                <div className="flex gap-2 justify-center w-full pb-2">
                   {CATEGORY_CHIPS.map((cat, index) => (
                     <Button
                       key={index}
                       variant="outline"
-                      className="flex flex-col gap-2 h-24 w-24 rounded-xl border-2 border-muted-foreground/20 hover:border-primary hover:bg-primary/5 hover:scale-105 transition-all shadow-sm"
+                      className="rounded-full bg-background hover:bg-primary/20 border-primary/30 text-xs sm:text-sm whitespace-nowrap px-4 h-9"
                       onClick={() => handleSuggestionClick(cat.text)}
                     >
-                      <span className="text-2xl">{cat.label.split(" ")[1]}</span>
-                      <span className="font-semibold text-xs uppercase tracking-wide">
-                        {cat.label.split(" ")[0]}
-                      </span>
+                      {cat.label}
                     </Button>
                   ))}
                 </div>
