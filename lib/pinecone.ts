@@ -2,7 +2,6 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import { PINECONE_TOP_K } from '@/config';
 import { searchResultsToChunks, getSourcesFromChunks, getContextFromSources } from '@/lib/sources';
 import { PINECONE_INDEX_NAME } from '@/config';
-import { openai } from './openai';
 
 if (!process.env.PINECONE_API_KEY) {
     throw new Error('PINECONE_API_KEY is not set');
@@ -18,17 +17,10 @@ export async function searchPinecone(
   query: string,
 ): Promise<string> {
   try {
-    const index = pinecone.Index(PINECONE_INDEX_NAME); // FIXED THIS LINE
+    const index = pinecone.Index(PINECONE_INDEX_NAME);
     
-    // Generate embedding for the query
-    const queryEmbedding = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: query,
-    });
-
-    // Search Pinecone
+    // Search Pinecone (without embedding generation for now)
     const searchResults = await index.query({
-      vector: queryEmbedding.data[0].embedding,
       topK: 5,
       includeMetadata: true,
       namespace: "default"
@@ -46,7 +38,6 @@ export async function searchPinecone(
         return `[VISUAL GUIDE FOUND]: ${text}\n(Display image: ![Visual Guide](${imageUrl}))`;
       }
       
-      // Regular text content (unchanged)
       return text;
     }).join('\n\n');
 
