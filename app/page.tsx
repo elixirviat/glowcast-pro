@@ -201,6 +201,12 @@ export default function Chat() {
     );
     
   const isFinalReport = aiText.includes("forecast") || aiText.includes("strategy");
+const VISUAL_TIPS_CHIP = [
+  { 
+    label: "View Application Tips 💄", 
+    text: "Show me visual application tips and face maps for this skincare routine." 
+  }
+];
 
   let activeChips: string[] = [];
   let showCategoryButtons = false;
@@ -328,6 +334,23 @@ export default function Chat() {
                 </div>
               )}
 
+              {/* VISUAL TIPS BUTTON */}
+{isFinalReport && (
+  <div className="flex gap-2 justify-center w-full pb-2">
+    {VISUAL_TIPS_CHIP.map((tip, index) => (
+      <Button
+        key={index}
+        variant="default"
+        className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm whitespace-nowrap px-6 h-9 font-medium shadow-md"
+        onClick={() => handleSuggestionClick(tip.text)}
+      >
+        {tip.label}
+      </Button>
+    ))}
+  </div>
+)}
+
+              
               <form id="chat-form" onSubmit={form.handleSubmit(onSubmit)}>
                 <FieldGroup>
                   <Controller
