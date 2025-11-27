@@ -3,10 +3,9 @@ import { fireworks } from "@ai-sdk/fireworks";
 import { wrapLanguageModel, extractReasoningMiddleware } from "ai";
 
 // 1. MODEL SETUP
-// We use gpt-4o-mini because it is fast, cheap, and smart enough for this.
-export const MODEL = openai('gpt-4o-mini'); 
+export const MODEL = openai('gpt-4o-mini');
 
-// 2. DATE FUNCTION (CRITICAL: DO NOT DELETE)
+// 2. DATE FUNCTION (Keep this!)
 function getDateAndTime(): string {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-US', {
@@ -25,27 +24,24 @@ function getDateAndTime(): string {
 
 export const DATE_AND_TIME = getDateAndTime();
 
-// 3. YOUR GLOWCAST IDENTITY
+// 3. IDENTITY & WELCOME MESSAGE
 export const AI_NAME = "GlowCast Pro";
 export const OWNER_NAME = "GlowCast Team";
 
-export const WELCOME_MESSAGE = `✨ Welcome to GlowCast Pro! 
-I am your travel skincare agent. 
+// --- FIX: THIS IS THE NEW, CLEAN WELCOME MESSAGE ---
+export const WELCOME_MESSAGE = `✨ Welcome to GlowCast Pro! 🌍
 
-Tell me:
-1. Where are you traveling? (e.g., Mumbai, Aspen)
-2. What products do you have? (e.g., Retinol, Matte Foundation)
+I am your intelligent travel beauty consultant. I analyze real-time weather to save your skin from climate shock.
 
-I will analyze the weather and check your routine for safety.`;
+**To get started, simply tell me: Where are you traveling to?**`;
 
-export const CLEAR_CHAT_TEXT = "New Trip";
+export const CLEAR_CHAT_TEXT = "New Destination";
 
-// 4. PINECONE SETTINGS (CRITICAL: DO NOT DELETE)
-export const PINECONE_TOP_K = 10;       // Number of results to retrieve
-export const PINECONE_INDEX_NAME = "my-ai"; // Your index name
+// 4. PINECONE SETTINGS
+export const PINECONE_TOP_K = 10;
+export const PINECONE_INDEX_NAME = "my-ai";
 
-// 5. MODERATION SETTINGS (CRITICAL: DO NOT DELETE)
-// The app needs these variables to exist, even if you don't change the text.
+// 5. MODERATION SETTINGS
 export const MODERATION_DENIAL_MESSAGE_SEXUAL = "I can't discuss explicit sexual content. Please ask something else.";
 export const MODERATION_DENIAL_MESSAGE_SEXUAL_MINORS = "I can't discuss content involving minors in a sexual context. Please ask something else.";
 export const MODERATION_DENIAL_MESSAGE_HARASSMENT = "I can't engage with harassing content. Please be respectful.";
