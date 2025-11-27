@@ -56,10 +56,13 @@ const formSchema = z.object({
 
 const STORAGE_KEY = 'chat-messages';
 
-// --- HELPER: Get clean text ---
+// --- HELPER: Get clean text (FIXED) ---
 const getMessageText = (message: UIMessage): string => {
   if (!message) return "";
-  if (typeof message.content === 'string') return message.content.toLowerCase();
+  
+  // FIX: Cast to 'any' to avoid TypeScript error if strict 'content' property is missing on type
+  const content = (message as any).content;
+  if (typeof content === 'string') return content.toLowerCase();
   
   if (message.parts && Array.isArray(message.parts)) {
     return message.parts
@@ -274,14 +277,13 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* 2. CATEGORY BUTTONS (UPDATED TO PILLS) */}
+              {/* 2. CATEGORY BUTTONS (PILLS) */}
               {showCategoryButtons && (
                 <div className="flex gap-2 justify-center w-full pb-2">
                   {CATEGORY_CHIPS.map((cat, index) => (
                     <Button
                       key={index}
                       variant="outline"
-                      // Changed from large square tiles to matching pill-shaped buttons
                       className="rounded-full bg-background hover:bg-primary/20 border-primary/30 text-xs sm:text-sm whitespace-nowrap px-4 h-9"
                       onClick={() => handleSuggestionClick(cat.text)}
                     >
