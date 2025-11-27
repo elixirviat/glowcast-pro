@@ -55,10 +55,15 @@ const formSchema = z.object({
 const STORAGE_KEY = 'chat-messages';
 
 // --- HELPER: Get clean text ---
+// FIX: We cast message to 'any' to access .content safely without TS errors
 const getMessageText = (message: UIMessage): string => {
   if (!message) return "";
-  if (typeof message.content === 'string') return message.content.toLowerCase();
   
+  // Safely check for string content (handles legacy/simple messages)
+  const content = (message as any).content;
+  if (typeof content === 'string') return content.toLowerCase();
+  
+  // Handle multi-part messages (newer AI SDK format)
   if (message.parts && Array.isArray(message.parts)) {
     return message.parts
       .filter(p => p.type === 'text')
@@ -159,7 +164,7 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
-  // --- LOGIC ENGINE (UPDATED) ---
+  // --- LOGIC ENGINE ---
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null;
   const userText = userLastMessage && userLastMessage.role === "user" ? getMessageText(userLastMessage) : "";
@@ -171,7 +176,6 @@ export default function Chat() {
   const isCategoryQuestion = aiText.includes("skincare") && aiText.includes("makeup") && aiText.includes("both");
 
   // 2. Detect Clarifying Questions (Skin Type, Activities, Finish)
-  // If the AI is asking these, we MUST hide all chips.
   const isClarifyingQuestion = 
     aiText.includes("skin type") || 
     aiText.includes("oily") || 
@@ -181,8 +185,6 @@ export default function Chat() {
     aiText.includes("matte");
 
   // 3. Detect Inventory Question
-  // We removed "list" to prevent "Great list!" from triggering this.
-  // We strictly check that we are NOT in the clarifying phase.
   const isInventoryQuestion = 
     !isClarifyingQuestion && (
       aiText.includes("product") || 
@@ -203,10 +205,6 @@ export default function Chat() {
           showCategoryButtons = true;
       } 
       else if (isInventoryQuestion) {
-          // Logic to decide which inventory chips to show based on previous user input
-          // We look back at history or infer from the context
-          // Since we want to remember what they picked earlier (Skincare vs Makeup),
-          // we usually rely on the userText, but if we are deep in convo, we might default to ALL
           if (userText.includes("skincare") && !userText.includes("makeup") && !userText.includes("both")) {
               activeChips = SKINCARE_CHIPS;
           } else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
@@ -215,7 +213,6 @@ export default function Chat() {
               activeChips = ALL_CHIPS;
           }
       }
-      // Implicitly: If isClarifyingQuestion is true, we fall through, showing NO chips.
   }
 
   return (
