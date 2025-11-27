@@ -50,10 +50,11 @@ const formSchema = z.object({
 
 const STORAGE_KEY = 'chat-messages';
 
-// --- HELPER: Get clean text from ANY message type ---
+// --- FIXED HELPER: Compatible with your SDK version ---
 const getMessageText = (message: UIMessage): string => {
   if (!message) return "";
-  if (typeof message.content === 'string') return message.content.toLowerCase();
+  
+  // Directly map the parts, because your SDK version guarantees 'parts' array
   if (message.parts && Array.isArray(message.parts)) {
     return message.parts
       .filter(p => p.type === 'text')
@@ -152,7 +153,7 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
-  // --- 3. PURE USER INTENT LOGIC ---
+  // --- 3. STRICT USER-DEPENDENT LOGIC ---
   
   // We need to look at the LAST message sent by the USER (messages.length - 2)
   // because the last message (messages.length - 1) is the AI asking the question.
@@ -168,18 +169,13 @@ export default function Chat() {
 
   let activeChips: string[] = [];
 
-  // LOGIC: If the AI is NOT finishing the chat, we check what the User just said.
+  // LOGIC: If User said X, and AI is NOT showing final report -> Show Chips for X
   if (!showLocations && !isFinalReport) {
-      // If User just said "Skincare", show Skincare Chips
       if (userText.includes("skincare") && !userText.includes("makeup") && !userText.includes("both")) {
           activeChips = SKINCARE_CHIPS;
-      } 
-      // If User just said "Makeup", show Makeup Chips
-      else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
+      } else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
           activeChips = MAKEUP_CHIPS;
-      } 
-      // If User said "Both" or we aren't sure, show ALL Chips
-      else if (userText.includes("both") || (userText.includes("skincare") && userText.includes("makeup"))) {
+      } else if (userText.includes("both") || (userText.includes("skincare") && userText.includes("makeup"))) {
           activeChips = ALL_CHIPS;
       }
   }
