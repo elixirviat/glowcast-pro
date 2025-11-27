@@ -56,11 +56,11 @@ const formSchema = z.object({
 
 const STORAGE_KEY = 'chat-messages';
 
-// --- HELPER: Get clean text (FIXED) ---
+// --- HELPER: Get clean text ---
 const getMessageText = (message: UIMessage): string => {
   if (!message) return "";
   
-  // FIX: Cast to 'any' to avoid TypeScript error if strict 'content' property is missing on type
+  // Cast to 'any' to avoid strict TypeScript checks on the 'content' property
   const content = (message as any).content;
   if (typeof content === 'string') return content.toLowerCase();
   
@@ -99,9 +99,8 @@ export default function Chat() {
   const [durations, setDurations] = useState<Record<string, number>>({});
   const welcomeMessageShownRef = useRef<boolean>(false);
   
-  const { messages, sendMessage, status, stop, setMessages } = useChat({
-    messages: [],
-  });
+  // FIX: Removed { messages: [] } to prevent TypeScript from inferring 'never[]'
+  const { messages, sendMessage, status, stop, setMessages } = useChat();
 
   const getWelcomeMessage = (): UIMessage => ({
     id: `welcome-${Date.now()}`,
@@ -127,7 +126,7 @@ export default function Chat() {
   // 3. PERSISTENCE
   useEffect(() => {
     if (isClient) {
-      saveMessagesToStorage(messages, durations);
+      saveMessagesToStorage(messages as unknown as UIMessage[], durations);
     }
   }, [durations, messages, isClient]);
 
@@ -164,13 +163,17 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
-  // --- LOGIC ENGINE ---
-  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-  const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null;
-  const userText = userLastMessage && userLastMessage.role === "user" ? getMessageText(userLastMessage) : "";
-  const aiText = lastMessage && lastMessage.role === "assistant" ? getMessageText(lastMessage) : "";
+  // --- LOGIC ENGINE (FIXED) ---
+  // We use casting 'as UIMessage | undefined' to stop the 'never' type error.
+  const lastMessage = messages[messages.length - 1] as UIMessage | undefined;
+  const userLastMessage = messages.length > 1 ? messages[messages.length - 2] as UIMessage | undefined : undefined;
+  
+  // Use optional chaining (?.) so it doesn't crash if undefined
+  const userText = userLastMessage?.role === "user" ? getMessageText(userLastMessage) : "";
+  const aiText = lastMessage?.role === "assistant" ? getMessageText(lastMessage) : "";
 
-  const showLocations = messages.length === 1 && messages[0].role === "assistant";
+  // Helper check for location suggestion
+  const showLocations = messages.length === 1 && (messages[0] as UIMessage).role === "assistant";
 
   // Logic: Detect questions
   const isCategoryQuestion = aiText.includes("skincare") && aiText.includes("makeup") && aiText.includes("both");
@@ -232,7 +235,7 @@ export default function Chat() {
           <div className="flex flex-col items-center justify-end min-h-full">
             {isClient ? (
               <>
-                <MessageWall messages={messages} status={status} durations={durations} onDurationChange={handleDurationChange} />
+                <MessageWall messages={messages as unknown as UIMessage[]} status={status} durations={durations} onDurationChange={handleDurationChange} />
                 {status === "submitted" && (
                   <div className="flex justify-start max-w-3xl w-full mt-4">
                     <div className="flex gap-3">
@@ -261,7 +264,7 @@ export default function Chat() {
             
             <div className="max-w-3xl w-full space-y-3 bg-background/80 backdrop-blur-md p-4 rounded-xl border border-border shadow-lg">
               
-              {/* 1. LOCATION CHIPS (PILLS) */}
+              {/* 1. LOCATION CHIPS */}
               {showLocations && (
                 <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
                   {LOCATION_SUGGESTIONS.map((action, index) => (
@@ -277,7 +280,7 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* 2. CATEGORY BUTTONS (PILLS) */}
+              {/* 2. CATEGORY CHIPS */}
               {showCategoryButtons && (
                 <div className="flex gap-2 justify-center w-full pb-2">
                   {CATEGORY_CHIPS.map((cat, index) => (
