@@ -1,180 +1,4 @@
-"use client";
-
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
-import { toast } from "sonner";
-import * as z from "zod";
-
-import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { useChat } from "@ai-sdk/react";
-import { ArrowUp, Loader2, Plus, Square } from "lucide-react";
-import { MessageWall } from "@/components/messages/message-wall";
-import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UIMessage } from "ai";
-import { useEffect, useState, useRef } from "react";
-import { AI_NAME, CLEAR_CHAT_TEXT, OWNER_NAME, WELCOME_MESSAGE } from "@/config";
-import Image from "next/image";
-import Link from "next/link";
-
-// --- 1. CONFIGURATION DATA ---
-
-const LOCATION_SUGGESTIONS = [
-  { label: "Bali 🌴", text: "I am going to Bali, Indonesia" },
-  { label: "Paris 🥐", text: "I am going to Paris, France" },
-  { label: "Aspen ❄️", text: "I am going to Aspen, USA" },
-  { label: "Tokyo 🍣", text: "I am going to Tokyo, Japan" },
-  { label: "New York 🍎", text: "I am going to New York, USA" },
-];
-
-const SKINCARE_CHIPS = [
-  "Cleanser", "Toner", "Vitamin C", "Retinol", "Heavy Cream", 
-  "Gel Moisturizer", "Face Oil", "SPF 50+", "Acne Treatment", "Eye Cream"
-];
-
-const MAKEUP_CHIPS = [
-  "Primer", "Matte Foundation", "Dewy Foundation", "Concealer", 
-  "Setting Powder", "Cream Blush", "Powder Blush", "Mascara", "Setting Spray"
-];
-
-const ALL_CHIPS = Array.from(new Set([...SKINCARE_CHIPS, ...MAKEUP_CHIPS]));
-
-const formSchema = z.object({
-  message: z.string().min(1, "Message cannot be empty.").max(2000, "Message must be at most 2000 characters."),
-});
-
-const STORAGE_KEY = 'chat-messages';
-
-// --- FIXED HELPER: Removed all references to .content ---
-const getMessageText = (message: UIMessage): string => {
-  if (!message) return "";
-  
-  // ONLY use parts array. This is safe for your SDK version.
-  if (message.parts && Array.isArray(message.parts)) {
-    return message.parts
-      .filter(p => p.type === 'text')
-      .map(p => p.text)
-      .join(' ')
-      .toLowerCase();
-  }
-  return "";
-};
-
-const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<string, number> } => {
-  if (typeof window === 'undefined') return { messages: [], durations: {} };
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return { messages: [], durations: {} };
-    const parsed = JSON.parse(stored);
-    return { messages: parsed.messages || [], durations: parsed.durations || {} };
-  } catch (error) {
-    return { messages: [], durations: {} };
-  }
-};
-
-const saveMessagesToStorage = (messages: UIMessage[], durations: Record<string, number>) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const data = { messages, durations };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (error) {}
-};
-
-export default function Chat() {
-  const [isClient, setIsClient] = useState(false);
-  const [durations, setDurations] = useState<Record<string, number>>({});
-  const welcomeMessageShownRef = useRef<boolean>(false);
-
-  const stored = typeof window !== 'undefined' ? loadMessagesFromStorage() : { messages: [], durations: {} };
-  const [initialMessages] = useState<UIMessage[]>(stored.messages);
-
-  const { messages, sendMessage, status, stop, setMessages } = useChat({
-    messages: initialMessages,
-  });
-
-  useEffect(() => {
-    setIsClient(true);
-    setDurations(stored.durations);
-    setMessages(stored.messages);
-  }, []);
-
-  useEffect(() => {
-    if (isClient) {
-      saveMessagesToStorage(messages, durations);
-    }
-  }, [durations, messages, isClient]);
-
-  const handleDurationChange = (key: string, duration: number) => {
-    setDurations((prev) => ({ ...prev, [key]: duration }));
-  };
-
-  useEffect(() => {
-    if (isClient && initialMessages.length === 0 && !welcomeMessageShownRef.current) {
-      const welcomeMessage: UIMessage = {
-        id: `welcome-${Date.now()}`,
-        role: "assistant",
-        parts: [{ type: "text", text: WELCOME_MESSAGE }],
-      };
-      setMessages([welcomeMessage]);
-      saveMessagesToStorage([welcomeMessage], {});
-      welcomeMessageShownRef.current = true;
-    }
-  }, [isClient, initialMessages.length, setMessages]);
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { message: "" },
-  });
-
-  function onSubmit(data: z.infer<typeof formSchema>) {
-    sendMessage({ text: data.message });
-    form.reset();
-  }
-
-  function handleSuggestionClick(text: string) {
-    sendMessage({ text });
-  }
-
-  function handleInventoryClick(item: string) {
-    const current = form.getValues("message");
-    const separator = current.length > 0 ? ", " : "";
-    form.setValue("message", current + separator + item);
-  }
-
-  function clearChat() {
-    setMessages([]);
-    setDurations({});
-    saveMessagesToStorage([], {});
-    toast.success("Chat cleared");
-  }
-
-  // --- 3. STRICT USER-DEPENDENT LOGIC ---
-  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-  const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null;
-  const userText = userLastMessage && userLastMessage.role === "user" ? getMessageText(userLastMessage) : "";
-  const aiText = lastMessage && lastMessage.role === "assistant" ? getMessageText(lastMessage) : "";
-  const isFinalReport = aiText.includes("forecast") || aiText.includes("strategy") || aiText.includes("routine");
-
-  const showLocations = messages.length === 1;
-
-  let activeChips: string[] = [];
-
-  if (!showLocations && !isFinalReport) {
-      if (userText.includes("skincare") && !userText.includes("makeup") && !userText.includes("both")) {
-          activeChips = SKINCARE_CHIPS;
-      } else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
-          activeChips = MAKEUP_CHIPS;
-      } else if (userText.includes("both") || (userText.includes("skincare") && userText.includes("makeup"))) {
-          activeChips = ALL_CHIPS;
-      }
-  }
-
-  return (
+return (
     <div className="flex h-screen items-center justify-center font-sans dark:bg-black">
       <main className="w-full dark:bg-black h-screen relative">
         {/* Header */}
@@ -233,7 +57,7 @@ export default function Chat() {
             
             <div className="max-w-3xl w-full space-y-3 bg-background/80 backdrop-blur-md p-4 rounded-xl border border-border shadow-lg">
               
-              {/* LOCATION CHIPS */}
+              {/* 1. LOCATION CHIPS */}
               {showLocations && (
                 <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
                   {LOCATION_SUGGESTIONS.map((action, index) => (
@@ -249,7 +73,28 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* INVENTORY CHIPS */}
+              {/* 2. NEW: CATEGORY TILES (Skincare/Makeup/Both) */}
+              {showCategoryButtons && (
+                <div className="flex gap-4 justify-center w-full pb-2">
+                  {CATEGORY_CHIPS.map((cat, index) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      // TILE STYLING: Large square, flex-col to stack emoji/text, scale animation
+                      className="flex flex-col gap-2 h-24 w-24 rounded-xl border-2 border-muted-foreground/20 hover:border-primary hover:bg-primary/5 hover:scale-105 transition-all shadow-sm"
+                      onClick={() => handleSuggestionClick(cat.text)}
+                    >
+                      {/* Split emoji and text for better layout */}
+                      <span className="text-2xl">{cat.label.split(" ")[1]}</span>
+                      <span className="font-semibold text-xs uppercase tracking-wide">
+                        {cat.label.split(" ")[0]}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {/* 3. INVENTORY CHIPS */}
               {activeChips.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-start sm:justify-center max-h-[100px] overflow-y-auto">
                   {activeChips.map((item, index) => (
@@ -312,4 +157,3 @@ export default function Chat() {
       </main>
     </div >
   );
-}
