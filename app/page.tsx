@@ -11,11 +11,11 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+// FIX: Replaced Input with Textarea for multi-line support
 import { useChat } from "@ai-sdk/react";
 import { ArrowUp, Loader2, Plus, Square } from "lucide-react";
 import { MessageWall } from "@/components/messages/message-wall";
-import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header"; 
+import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UIMessage } from "ai";
 import { useEffect, useState, useRef } from "react";
@@ -42,6 +42,9 @@ const MAKEUP_CHIPS = [
   "Primer", "Matte Foundation", "Dewy Foundation", "Concealer", 
   "Setting Powder", "Cream Blush", "Powder Blush", "Mascara", "Setting Spray"
 ];
+
+// Combine both for the "Safety Net" list
+const ALL_CHIPS = Array.from(new Set([...SKINCARE_CHIPS, ...MAKEUP_CHIPS]));
 
 const formSchema = z.object({
   message: z
@@ -142,11 +145,9 @@ export default function Chat() {
     sendMessage({ text });
   }
 
-  // --- 2. ADD INVENTORY LOGIC ---
   function handleInventoryClick(item: string) {
     const current = form.getValues("message");
     const separator = current.length > 0 ? ", " : "";
-    // Append the new item to the existing text
     form.setValue("message", current + separator + item);
   }
 
@@ -159,27 +160,35 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
-  // --- 3. DETERMINE WHICH CHIPS TO SHOW (FUZZY MATCHING) ---
+  // --- 3. ROBUST CHIP LOGIC ---
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const lastText = lastMessage && lastMessage.role === "assistant" 
     ? (lastMessage.parts[0].type === 'text' ? lastMessage.parts[0].text.toLowerCase() : '') 
     : "";
 
-  // RELAXED LOGIC: Check for keywords instead of full sentences
-  const isAskingForInventory = lastText.includes("products") || lastText.includes("packing") || lastText.includes("inventory");
-  const isSkincareContext = lastText.includes("skin type") || lastText.includes("skincare");
-  const isMakeupContext = lastText.includes("finish") || lastText.includes("makeup") || lastText.includes("aesthetic");
-
-  // Logic: If asking for inventory, decide which list to show
-  const showSkincareChips = isAskingForInventory && (isSkincareContext || !isMakeupContext); // Default to skincare if unsure
-  const showMakeupChips = isAskingForInventory && isMakeupContext;
-  
-  // If we are showing inventory chips, use that list. If it's the welcome screen, use locations.
-  const activeChips = showSkincareChips ? SKINCARE_CHIPS 
-                    : showMakeupChips ? MAKEUP_CHIPS 
-                    : [];
-
+  // A. Do we show locations? (Only if it's the very first welcome message)
   const showLocations = messages.length === 1;
+
+  // B. Do we show inventory chips? (Check for ANY inventory keyword)
+  const isInventoryQuestion = lastText.includes("product") || lastText.includes("packing") || lastText.includes("inventory") || lastText.includes("routine") || lastText.includes("list") || lastText.includes("lineup");
+
+  // C. Which list? (Check context)
+  const hasMakeupKeywords = lastText.includes("makeup") || lastText.includes("finish") || lastText.includes("aesthetic") || lastText.includes("foundation");
+  const hasSkincareKeywords = lastText.includes("skin") || lastText.includes("moisturizer") || lastText.includes("cleanse");
+
+  let activeChips: string[] = [];
+
+  if (isInventoryQuestion && !showLocations) {
+      if (hasMakeupKeywords && !hasSkincareKeywords) {
+          activeChips = MAKEUP_CHIPS;
+      } else if (hasSkincareKeywords && !hasMakeupKeywords) {
+          activeChips = SKINCARE_CHIPS;
+      } else {
+          // SAFETY NET: If we can't decide, show EVERYTHING. 
+          // This ensures buttons ALWAYS appear when asking for products.
+          activeChips = ALL_CHIPS; 
+      }
+  }
 
   return (
     <div className="flex h-screen items-center justify-center font-sans dark:bg-black">
@@ -242,7 +251,7 @@ export default function Chat() {
             
             <div className="max-w-3xl w-full space-y-3">
               
-              {/* A: LOCATION CHIPS (Only on Welcome) */}
+              {/* LOCATION CHIPS */}
               {showLocations && (
                 <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
                   {LOCATION_SUGGESTIONS.map((action, index) => (
@@ -258,7 +267,7 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* B: INVENTORY CHIPS (Dynamic based on context) */}
+              {/* INVENTORY CHIPS */}
               {activeChips.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-start sm:justify-center pb-1 max-h-[100px] overflow-y-auto">
                   {activeChips.map((item, index) => (
@@ -283,15 +292,14 @@ export default function Chat() {
                     render={({ field, fieldState }) => (
                       <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor="chat-form-message" className="sr-only">Message</FieldLabel>
-                        <div className="relative h-13">
-                          <Input
+                        <div className="relative">
+                          {/* FIX: USING TEXTAREA FOR MULTI-LINE SUPPORT */}
+                          <textarea
                             {...field}
                             id="chat-form-message"
-                            className="h-15 pr-15 pl-5 bg-card rounded-[20px]"
+                            className="w-full min-h-[60px] max-h-[200px] p-4 pr-14 rounded-[20px] bg-card border border-input focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm"
                             placeholder={activeChips.length > 0 ? "Tap items above or type..." : "Type your message..."}
                             disabled={status === "streaming"}
-                            aria-invalid={fieldState.invalid}
-                            autoComplete="off"
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault();
@@ -301,7 +309,7 @@ export default function Chat() {
                           />
                           {(status == "ready" || status == "error") && (
                             <Button
-                              className="absolute right-3 top-3 rounded-full"
+                              className="absolute right-3 bottom-3 rounded-full"
                               type="submit"
                               disabled={!field.value.trim()}
                               size="icon"
@@ -311,7 +319,7 @@ export default function Chat() {
                           )}
                           {(status == "streaming" || status == "submitted") && (
                             <Button
-                              className="absolute right-2 top-2 rounded-full"
+                              className="absolute right-3 bottom-3 rounded-full"
                               size="icon"
                               onClick={() => stop()}
                             >
