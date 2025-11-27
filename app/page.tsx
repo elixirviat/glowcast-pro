@@ -14,7 +14,7 @@ import {
 import { useChat } from "@ai-sdk/react";
 import { ArrowUp, Loader2, Plus, Square } from "lucide-react";
 import { MessageWall } from "@/components/messages/message-wall";
-import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header"; 
+import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UIMessage } from "ai";
 import { useEffect, useState, useRef } from "react";
@@ -49,9 +49,6 @@ const formSchema = z.object({
 });
 
 const STORAGE_KEY = 'chat-messages';
-
-// ... (Keep existing storage functions logic if you want, or I can include them for safety)
-// For brevity, I'm pasting the FULL corrected component below.
 
 const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<string, number> } => {
   if (typeof window === 'undefined') return { messages: [], durations: {} };
@@ -141,33 +138,40 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
-  // --- LOGIC FOR CHIPS ---
+  // --- 3. LOGIC REPAIR (USER-INTENT BASED) ---
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-  const lastText = lastMessage && lastMessage.role === "assistant" 
+  const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null; // Get what USER said
+  
+  const aiText = lastMessage && lastMessage.role === "assistant" 
     ? (lastMessage.parts[0].type === 'text' ? lastMessage.parts[0].text.toLowerCase() : '') 
+    : "";
+  
+  const userText = userLastMessage && userLastMessage.role === "user"
+    ? (userLastMessage.parts[0].type === 'text' ? userLastMessage.parts[0].text.toLowerCase() : '')
     : "";
 
   const showLocations = messages.length === 1;
 
-  // New Logic: Check if asking for products
-  const isInventoryQuestion = lastText.includes("product") || lastText.includes("packing") || lastText.includes("list");
-  
-  // Decide list based on PREVIOUS conversation context (simple hack: search whole history for keywords if needed, but lastText works if Prompt is good)
-  // Since we changed the prompt to ask "Skincare or Makeup" BEFORE asking for products, we can check the *previous* user message, 
-  // BUT the simplest way is to check if the AI mentions "Skincare" or "Makeup" in its question.
-  
+  // Rule: Only show inventory chips if AI is asking about "products", "packing", or "stash"
+  const isInventoryQuestion = aiText.includes("product") || aiText.includes("packing") || aiText.includes("list");
+
+  // Rule: Decide WHICH chips based on what the USER said previously ("Skincare", "Makeup")
   let activeChips: string[] = [];
+
   if (isInventoryQuestion && !showLocations) {
-      // If AI says "tell me what products...", we default to ALL if we aren't sure, 
-      // but usually the prompt flow will keep context.
-      // Let's use ALL_CHIPS as a safe fallback to ensure buttons always appear.
-      activeChips = ALL_CHIPS; 
+      if (userText.includes("skincare") && !userText.includes("makeup") && !userText.includes("both")) {
+          activeChips = SKINCARE_CHIPS;
+      } else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
+          activeChips = MAKEUP_CHIPS;
+      } else {
+          // If they said "Both" OR if we are unsure -> Show ALL chips
+          activeChips = ALL_CHIPS; 
+      }
   }
 
   return (
     <div className="flex h-screen items-center justify-center font-sans dark:bg-black">
       <main className="w-full dark:bg-black h-screen relative">
-        {/* Header */}
         <div className="fixed top-0 left-0 right-0 z-50 bg-linear-to-b from-background via-background/50 to-transparent dark:bg-black overflow-visible pb-4">
           <div className="relative overflow-visible">
             <ChatHeader>
@@ -189,7 +193,6 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Chat Area - INCREASED PADDING BOTTOM (pb-64) TO FIX OVERLAP */}
         <div className="h-screen overflow-y-auto px-5 py-4 w-full pt-[88px] pb-64">
           <div className="flex flex-col items-center justify-end min-h-full">
             {isClient ? (
@@ -216,14 +219,12 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Footer Input Area */}
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-linear-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-4 pb-6">
           <div className="w-full px-5 items-center flex flex-col justify-center relative overflow-visible">
             <div className="message-fade-overlay" />
             
             <div className="max-w-3xl w-full space-y-3 bg-background/80 backdrop-blur-md p-4 rounded-xl border border-border shadow-lg">
               
-              {/* LOCATION CHIPS */}
               {showLocations && (
                 <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
                   {LOCATION_SUGGESTIONS.map((action, index) => (
@@ -239,7 +240,6 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* INVENTORY CHIPS */}
               {activeChips.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-start sm:justify-center max-h-[100px] overflow-y-auto">
                   {activeChips.map((item, index) => (
