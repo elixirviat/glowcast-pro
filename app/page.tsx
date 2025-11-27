@@ -18,7 +18,9 @@ import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UIMessage } from "ai";
 import { useEffect, useState, useRef } from "react";
-import { AI_NAME, CLEAR_CHAT_TEXT, WELCOME_MESSAGE } from "../config";
+import { AI_NAME, CLEAR_CHAT_TEXT, OWNER_NAME, WELCOME_MESSAGE } from "@/config";
+import Image from "next/image";
+import Link from "next/link";
 
 // --- 1. CONFIGURATION DATA ---
 
@@ -55,15 +57,12 @@ const formSchema = z.object({
 const STORAGE_KEY = 'chat-messages';
 
 // --- HELPER: Get clean text ---
-// FIX: We cast message to 'any' to access .content safely without TS errors
 const getMessageText = (message: UIMessage): string => {
   if (!message) return "";
+  // Check common text properties
+  if (typeof message.content === 'string') return message.content.toLowerCase();
   
-  // Safely check for string content (handles legacy/simple messages)
-  const content = (message as any).content;
-  if (typeof content === 'string') return content.toLowerCase();
-  
-  // Handle multi-part messages (newer AI SDK format)
+  // Safe check for parts array
   if (message.parts && Array.isArray(message.parts)) {
     return message.parts
       .filter(p => p.type === 'text')
@@ -115,6 +114,7 @@ export default function Chat() {
     const stored = loadMessagesFromStorage();
 
     if (stored.messages.length > 0) {
+      // FIX: 'as any' bypasses the strict type error
       setMessages(stored.messages as any);
       setDurations(stored.durations);
     } else {
@@ -172,34 +172,21 @@ export default function Chat() {
 
   const showLocations = messages.length === 1 && messages[0].role === "assistant";
 
-  // 1. Detect Category Selection Question
+  // Logic: Detect questions
   const isCategoryQuestion = aiText.includes("skincare") && aiText.includes("makeup") && aiText.includes("both");
-
-  // 2. Detect Clarifying Questions (Skin Type, Activities, Finish)
-  const isClarifyingQuestion = 
-    aiText.includes("skin type") || 
-    aiText.includes("oily") || 
-    aiText.includes("activities") || 
-    aiText.includes("finish") || 
-    aiText.includes("agenda") ||
-    aiText.includes("matte");
-
-  // 3. Detect Inventory Question
+  
   const isInventoryQuestion = 
-    !isClarifyingQuestion && (
-      aiText.includes("product") || 
-      aiText.includes("packing") || 
-      aiText.includes("stash") || 
-      aiText.includes("bring") ||
-      aiText.includes("routine")
-    );
+    aiText.includes("product") || 
+    aiText.includes("packing") || 
+    aiText.includes("list") || 
+    aiText.includes("stash") || 
+    aiText.includes("bring");
     
   const isFinalReport = aiText.includes("forecast") || aiText.includes("strategy");
 
   let activeChips: string[] = [];
   let showCategoryButtons = false;
 
-  // The Logic Router
   if (!showLocations && !isFinalReport) {
       if (isCategoryQuestion) {
           showCategoryButtons = true;
@@ -290,7 +277,7 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* 2. CATEGORY BUTTONS */}
+              {/* 2. CATEGORY TILES */}
               {showCategoryButtons && (
                 <div className="flex gap-4 justify-center w-full pb-2">
                   {CATEGORY_CHIPS.map((cat, index) => (
