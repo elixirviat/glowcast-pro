@@ -147,7 +147,6 @@ export default function Chat() {
                 <Avatar
                   className="size-8 ring-1 ring-primary"
                 >
-                  {/* FIX: UPDATED LOGO HERE */}
                   <AvatarImage src="https://i.ibb.co/ccdTwRh4/GlowCast.png" />
                   <AvatarFallback>
                     <Image src="https://i.ibb.co/ccdTwRh4/GlowCast.png" alt="Logo" width={36} height={36} />
@@ -177,7 +176,6 @@ export default function Chat() {
                 {status === "submitted" && (
                   <div className="flex justify-start max-w-3xl w-full">
                     <div className="flex gap-3">
-                        {/* Added a mini-logo for the loading state too just in case */}
                         <Avatar className="size-8 ring-1 ring-primary">
                             <AvatarImage src="https://i.ibb.co/ccdTwRh4/GlowCast.png" />
                         </Avatar>
@@ -254,8 +252,9 @@ export default function Chat() {
               </form>
             </div>
           </div>
-          <div className="w-full px-5 py-3 items-center flex justify-center text-xs text-muted-foreground">
-            © {new Date().getFullYear()} {OWNER_NAME}&nbsp;<Link href="/terms" className="underline">Terms of Use</Link>&nbsp;Powered by&nbsp;<Link href="https://ringel.ai/" className="underline">Ringel.AI</Link>
+          {/* FIX: Updated Footer to match Google Gemini Style */}
+          <div className="w-full px-5 py-3 items-center flex justify-center text-xs text-muted-foreground text-center">
+            GlowCast Pro can make mistakes, so please double-check it.
           </div>
         </div>
       </main>
