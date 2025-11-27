@@ -13,10 +13,9 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useChat } from "@ai-sdk/react";
-import { ArrowUp, Loader2, Plus, Square } from "lucide-react"; // Removed unused imports
+import { ArrowUp, Loader2, Plus, Square } from "lucide-react";
 import { MessageWall } from "@/components/messages/message-wall";
-import { ChatHeader } from "@/app/parts/chat-header";
-import { ChatHeaderBlock } from "@/app/parts/chat-header";
+import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header"; // Fixed import
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UIMessage } from "ai";
 import { useEffect, useState, useRef } from "react";
@@ -24,13 +23,24 @@ import { AI_NAME, CLEAR_CHAT_TEXT, OWNER_NAME, WELCOME_MESSAGE } from "@/config"
 import Image from "next/image";
 import Link from "next/link";
 
-// --- 1. DEFINE YOUR POPULAR DESTINATIONS HERE ---
-const SUGGESTED_ACTIONS = [
-  { label: "Bali, Indonesia 🌴", text: "I am going to Bali, Indonesia" },
-  { label: "Paris, France 🥐", text: "I am going to Paris, France" },
-  { label: "Aspen, USA ❄️", text: "I am going to Aspen, USA" },
-  { label: "Tokyo, Japan 🍣", text: "I am going to Tokyo, Japan" },
-  { label: "New York, USA 🍎", text: "I am going to New York, USA" },
+// --- 1. CONFIGURATION DATA ---
+
+const LOCATION_SUGGESTIONS = [
+  { label: "Bali 🌴", text: "I am going to Bali, Indonesia" },
+  { label: "Paris 🥐", text: "I am going to Paris, France" },
+  { label: "Aspen ❄️", text: "I am going to Aspen, USA" },
+  { label: "Tokyo 🍣", text: "I am going to Tokyo, Japan" },
+  { label: "New York 🍎", text: "I am going to New York, USA" },
+];
+
+const SKINCARE_CHIPS = [
+  "Cleanser", "Toner", "Vitamin C", "Retinol", "Heavy Cream", 
+  "Gel Moisturizer", "Face Oil", "SPF 50+", "Acne Treatment", "Eye Cream"
+];
+
+const MAKEUP_CHIPS = [
+  "Primer", "Matte Foundation", "Dewy Foundation", "Concealer", 
+  "Setting Powder", "Cream Blush", "Powder Blush", "Mascara", "Setting Spray"
 ];
 
 const formSchema = z.object({
@@ -52,7 +62,6 @@ const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<s
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return { messages: [], durations: {} };
-
     const parsed = JSON.parse(stored);
     return {
       messages: parsed.messages || [],
@@ -129,9 +138,16 @@ export default function Chat() {
     form.reset();
   }
 
-  // --- 2. HANDLE BUTTON CLICKS ---
   function handleSuggestionClick(text: string) {
     sendMessage({ text });
+  }
+
+  // --- 2. ADD INVENTORY LOGIC ---
+  function handleInventoryClick(item: string) {
+    const current = form.getValues("message");
+    const separator = current.length > 0 ? ", " : "";
+    // Append the new item to the existing text
+    form.setValue("message", current + separator + item);
   }
 
   function clearChat() {
@@ -143,9 +159,25 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
+  // --- 3. DETERMINE WHICH CHIPS TO SHOW ---
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const lastText = lastMessage && lastMessage.role === "assistant" ? lastMessage.parts[0].type === 'text' ? lastMessage.parts[0].text : '' : "";
+
+  // Detect context based on your specific Prompt Phrasing
+  const showSkincareChips = lastText.includes("filter out the bad ones") || lastText.includes("specific activities are on the agenda");
+  const showMakeupChips = lastText.includes("aesthetic right") || lastText.includes("key products are you packing");
+  
+  // If we are showing inventory chips, use that list. If it's the welcome screen, use locations.
+  const activeChips = showSkincareChips ? SKINCARE_CHIPS 
+                    : showMakeupChips ? MAKEUP_CHIPS 
+                    : [];
+
+  const showLocations = messages.length === 1;
+
   return (
     <div className="flex h-screen items-center justify-center font-sans dark:bg-black">
       <main className="w-full dark:bg-black h-screen relative">
+        {/* Header */}
         <div className="fixed top-0 left-0 right-0 z-50 bg-linear-to-b from-background via-background/50 to-transparent dark:bg-black overflow-visible pb-16">
           <div className="relative overflow-visible">
             <ChatHeader>
@@ -169,6 +201,7 @@ export default function Chat() {
           </div>
         </div>
 
+        {/* Chat Area */}
         <div className="h-screen overflow-y-auto px-5 py-4 w-full pt-[88px] pb-[150px]">
           <div className="flex flex-col items-center justify-end min-h-full">
             {isClient ? (
@@ -195,23 +228,41 @@ export default function Chat() {
           </div>
         </div>
 
+        {/* Footer Input Area */}
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-linear-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-13">
           <div className="w-full px-5 pt-5 pb-1 items-center flex flex-col justify-center relative overflow-visible">
             <div className="message-fade-overlay" />
             
-            <div className="max-w-3xl w-full space-y-4"> {/* Added space-y-4 for gap between buttons and input */}
+            <div className="max-w-3xl w-full space-y-3">
               
-              {/* --- 3. RENDER BUTTONS IF CHAT IS EMPTY --- */}
-              {messages.length === 1 && (
+              {/* A: LOCATION CHIPS (Only on Welcome) */}
+              {showLocations && (
                 <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
-                  {SUGGESTED_ACTIONS.map((action, index) => (
+                  {LOCATION_SUGGESTIONS.map((action, index) => (
                     <Button
                       key={index}
-                      variant="outline" // Uses your Light Blue border!
+                      variant="outline"
                       className="rounded-full bg-background/80 hover:bg-primary/20 border-primary/30 text-xs sm:text-sm whitespace-nowrap px-4 h-9"
                       onClick={() => handleSuggestionClick(action.text)}
                     >
                       {action.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {/* B: INVENTORY CHIPS (Dynamic based on context) */}
+              {activeChips.length > 0 && (
+                <div className="flex flex-wrap gap-2 justify-start sm:justify-center pb-1 max-h-[100px] overflow-y-auto">
+                  {activeChips.map((item, index) => (
+                    <Button
+                      key={index}
+                      variant="secondary"
+                      size="sm"
+                      className="rounded-full text-xs bg-primary/10 hover:bg-primary/30 border border-primary/20"
+                      onClick={() => handleInventoryClick(item)}
+                    >
+                      + {item}
                     </Button>
                   ))}
                 </div>
@@ -230,7 +281,7 @@ export default function Chat() {
                             {...field}
                             id="chat-form-message"
                             className="h-15 pr-15 pl-5 bg-card rounded-[20px]"
-                            placeholder="Type your message here..."
+                            placeholder={activeChips.length > 0 ? "Tap items above or type your own..." : "Type your message here..."}
                             disabled={status === "streaming"}
                             aria-invalid={fieldState.invalid}
                             autoComplete="off"
