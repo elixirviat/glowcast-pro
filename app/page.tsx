@@ -17,10 +17,10 @@ import { MessageWall } from "@/components/messages/message-wall";
 import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UIMessage } from "ai";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { AI_NAME, CLEAR_CHAT_TEXT, WELCOME_MESSAGE } from "@/config";
 
-// --- 1. CONFIGURATION DATA (MUST BE HERE) ---
+// --- 1. CONFIGURATION DATA ---
 
 const LOCATION_SUGGESTIONS = [
   { label: "Bali 🌴", text: "I am going to Bali, Indonesia" },
@@ -91,9 +91,10 @@ export default function Chat() {
   const [isClient, setIsClient] = useState(false);
   const [durations, setDurations] = useState<Record<string, number>>({});
   
-  // 1. Initialize empty
+  // --- CRITICAL FIX: Use 'initialMessages' and cast it as 'UIMessage[]' ---
+  // This prevents the 'never[]' build error.
   const { messages, sendMessage, status, stop, setMessages } = useChat({
-    messages: [],
+    initialMessages: [] as UIMessage[], 
   });
 
   const getWelcomeMessage = (): UIMessage => ({
@@ -156,7 +157,7 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
-  // --- LOGIC ENGINE (THIS WAS MISSING IN YOUR PASTE) ---
+  // --- LOGIC ENGINE ---
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null;
   const userText = userLastMessage && userLastMessage.role === "user" ? getMessageText(userLastMessage) : "";
@@ -276,7 +277,7 @@ export default function Chat() {
                     <Button
                       key={index}
                       variant="outline"
-                      // TILE STYLING
+                      // TILE STYLING: Large square, flex-col to stack emoji/text, scale animation
                       className="flex flex-col gap-2 h-24 w-24 rounded-xl border-2 border-muted-foreground/20 hover:border-primary hover:bg-primary/5 hover:scale-105 transition-all shadow-sm"
                       onClick={() => handleSuggestionClick(cat.text)}
                     >
