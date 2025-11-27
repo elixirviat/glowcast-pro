@@ -74,6 +74,11 @@ const getMessageText = (message: UIMessage): string => {
   return "";
 };
 
+// Add helper function to get message role
+const getMessageRole = (message: UIMessage): string => {
+  return (message as any).role || "";
+};
+
 const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<string, number> } => {
   if (typeof window === 'undefined') return { messages: [], durations: {} };
   try {
@@ -107,7 +112,7 @@ export default function Chat() {
     id: `welcome-${Date.now()}`,
     role: "assistant",
     parts: [{ type: "text", text: WELCOME_MESSAGE }],
-  });
+  } as any);
 
   // 2. INITIAL LOAD
   useEffect(() => {
@@ -167,10 +172,10 @@ export default function Chat() {
   // --- LOGIC ENGINE (IMPROVED) ---
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null;
-  const userText = userLastMessage && userLastMessage.role === "user" ? getMessageText(userLastMessage) : "";
-  const aiText = lastMessage && lastMessage.role === "assistant" ? getMessageText(lastMessage) : "";
+  const userText = userLastMessage && getMessageRole(userLastMessage) === "user" ? getMessageText(userLastMessage) : "";
+  const aiText = lastMessage && getMessageRole(lastMessage) === "assistant" ? getMessageText(lastMessage) : "";
 
-  const showLocations = messages.length === 1 && messages[0].role === "assistant";
+  const showLocations = messages.length === 1 && getMessageRole(messages[0]) === "assistant";
 
   // 1. Detect Category Selection Question
   const isCategoryQuestion = aiText.includes("skincare") && aiText.includes("makeup") && aiText.includes("both");
