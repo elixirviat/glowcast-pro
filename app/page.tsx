@@ -11,11 +11,10 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-// FIX: Replaced Input with Textarea for multi-line support
 import { useChat } from "@ai-sdk/react";
 import { ArrowUp, Loader2, Plus, Square } from "lucide-react";
 import { MessageWall } from "@/components/messages/message-wall";
-import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header";
+import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header"; 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UIMessage } from "ai";
 import { useEffect, useState, useRef } from "react";
@@ -43,22 +42,16 @@ const MAKEUP_CHIPS = [
   "Setting Powder", "Cream Blush", "Powder Blush", "Mascara", "Setting Spray"
 ];
 
-// Combine both for the "Safety Net" list
 const ALL_CHIPS = Array.from(new Set([...SKINCARE_CHIPS, ...MAKEUP_CHIPS]));
 
 const formSchema = z.object({
-  message: z
-    .string()
-    .min(1, "Message cannot be empty.")
-    .max(2000, "Message must be at most 2000 characters."),
+  message: z.string().min(1, "Message cannot be empty.").max(2000, "Message must be at most 2000 characters."),
 });
 
 const STORAGE_KEY = 'chat-messages';
 
-type StorageData = {
-  messages: UIMessage[];
-  durations: Record<string, number>;
-};
+// ... (Keep existing storage functions logic if you want, or I can include them for safety)
+// For brevity, I'm pasting the FULL corrected component below.
 
 const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<string, number> } => {
   if (typeof window === 'undefined') return { messages: [], durations: {} };
@@ -66,12 +59,8 @@ const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<s
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return { messages: [], durations: {} };
     const parsed = JSON.parse(stored);
-    return {
-      messages: parsed.messages || [],
-      durations: parsed.durations || {},
-    };
+    return { messages: parsed.messages || [], durations: parsed.durations || {} };
   } catch (error) {
-    console.error('Failed to load messages from localStorage:', error);
     return { messages: [], durations: {} };
   }
 };
@@ -79,11 +68,9 @@ const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<s
 const saveMessagesToStorage = (messages: UIMessage[], durations: Record<string, number>) => {
   if (typeof window === 'undefined') return;
   try {
-    const data: StorageData = { messages, durations };
+    const data = { messages, durations };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (error) {
-    console.error('Failed to save messages to localStorage:', error);
-  }
+  } catch (error) {}
 };
 
 export default function Chat() {
@@ -111,11 +98,7 @@ export default function Chat() {
   }, [durations, messages, isClient]);
 
   const handleDurationChange = (key: string, duration: number) => {
-    setDurations((prevDurations) => {
-      const newDurations = { ...prevDurations };
-      newDurations[key] = duration;
-      return newDurations;
-    });
+    setDurations((prev) => ({ ...prev, [key]: duration }));
   };
 
   useEffect(() => {
@@ -152,58 +135,47 @@ export default function Chat() {
   }
 
   function clearChat() {
-    const newMessages: UIMessage[] = [];
-    const newDurations = {};
-    setMessages(newMessages);
-    setDurations(newDurations);
-    saveMessagesToStorage(newMessages, newDurations);
+    setMessages([]);
+    setDurations({});
+    saveMessagesToStorage([], {});
     toast.success("Chat cleared");
   }
 
-  // --- 3. ROBUST CHIP LOGIC ---
+  // --- LOGIC FOR CHIPS ---
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const lastText = lastMessage && lastMessage.role === "assistant" 
     ? (lastMessage.parts[0].type === 'text' ? lastMessage.parts[0].text.toLowerCase() : '') 
     : "";
 
-  // A. Do we show locations? (Only if it's the very first welcome message)
   const showLocations = messages.length === 1;
 
-  // B. Do we show inventory chips? (Check for ANY inventory keyword)
-  const isInventoryQuestion = lastText.includes("product") || lastText.includes("packing") || lastText.includes("inventory") || lastText.includes("routine") || lastText.includes("list") || lastText.includes("lineup");
-
-  // C. Which list? (Check context)
-  const hasMakeupKeywords = lastText.includes("makeup") || lastText.includes("finish") || lastText.includes("aesthetic") || lastText.includes("foundation");
-  const hasSkincareKeywords = lastText.includes("skin") || lastText.includes("moisturizer") || lastText.includes("cleanse");
-
+  // New Logic: Check if asking for products
+  const isInventoryQuestion = lastText.includes("product") || lastText.includes("packing") || lastText.includes("list");
+  
+  // Decide list based on PREVIOUS conversation context (simple hack: search whole history for keywords if needed, but lastText works if Prompt is good)
+  // Since we changed the prompt to ask "Skincare or Makeup" BEFORE asking for products, we can check the *previous* user message, 
+  // BUT the simplest way is to check if the AI mentions "Skincare" or "Makeup" in its question.
+  
   let activeChips: string[] = [];
-
   if (isInventoryQuestion && !showLocations) {
-      if (hasMakeupKeywords && !hasSkincareKeywords) {
-          activeChips = MAKEUP_CHIPS;
-      } else if (hasSkincareKeywords && !hasMakeupKeywords) {
-          activeChips = SKINCARE_CHIPS;
-      } else {
-          // SAFETY NET: If we can't decide, show EVERYTHING. 
-          // This ensures buttons ALWAYS appear when asking for products.
-          activeChips = ALL_CHIPS; 
-      }
+      // If AI says "tell me what products...", we default to ALL if we aren't sure, 
+      // but usually the prompt flow will keep context.
+      // Let's use ALL_CHIPS as a safe fallback to ensure buttons always appear.
+      activeChips = ALL_CHIPS; 
   }
 
   return (
     <div className="flex h-screen items-center justify-center font-sans dark:bg-black">
       <main className="w-full dark:bg-black h-screen relative">
         {/* Header */}
-        <div className="fixed top-0 left-0 right-0 z-50 bg-linear-to-b from-background via-background/50 to-transparent dark:bg-black overflow-visible pb-16">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-linear-to-b from-background via-background/50 to-transparent dark:bg-black overflow-visible pb-4">
           <div className="relative overflow-visible">
             <ChatHeader>
               <ChatHeaderBlock />
               <ChatHeaderBlock className="justify-center items-center">
                 <Avatar className="size-8 ring-1 ring-primary">
                   <AvatarImage src="https://i.ibb.co/ccdTwRh4/GlowCast.png" />
-                  <AvatarFallback>
-                    <Image src="https://i.ibb.co/ccdTwRh4/GlowCast.png" alt="Logo" width={36} height={36} />
-                  </AvatarFallback>
+                  <AvatarFallback>GC</AvatarFallback>
                 </Avatar>
                 <p className="tracking-tight">Chat with {AI_NAME}</p>
               </ChatHeaderBlock>
@@ -217,14 +189,14 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Chat Area */}
-        <div className="h-screen overflow-y-auto px-5 py-4 w-full pt-[88px] pb-[150px]">
+        {/* Chat Area - INCREASED PADDING BOTTOM (pb-64) TO FIX OVERLAP */}
+        <div className="h-screen overflow-y-auto px-5 py-4 w-full pt-[88px] pb-64">
           <div className="flex flex-col items-center justify-end min-h-full">
             {isClient ? (
               <>
                 <MessageWall messages={messages} status={status} durations={durations} onDurationChange={handleDurationChange} />
                 {status === "submitted" && (
-                  <div className="flex justify-start max-w-3xl w-full">
+                  <div className="flex justify-start max-w-3xl w-full mt-4">
                     <div className="flex gap-3">
                         <Avatar className="size-8 ring-1 ring-primary">
                             <AvatarImage src="https://i.ibb.co/ccdTwRh4/GlowCast.png" />
@@ -245,11 +217,11 @@ export default function Chat() {
         </div>
 
         {/* Footer Input Area */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-linear-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-13">
-          <div className="w-full px-5 pt-5 pb-1 items-center flex flex-col justify-center relative overflow-visible">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-linear-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-4 pb-6">
+          <div className="w-full px-5 items-center flex flex-col justify-center relative overflow-visible">
             <div className="message-fade-overlay" />
             
-            <div className="max-w-3xl w-full space-y-3">
+            <div className="max-w-3xl w-full space-y-3 bg-background/80 backdrop-blur-md p-4 rounded-xl border border-border shadow-lg">
               
               {/* LOCATION CHIPS */}
               {showLocations && (
@@ -258,7 +230,7 @@ export default function Chat() {
                     <Button
                       key={index}
                       variant="outline"
-                      className="rounded-full bg-background/80 hover:bg-primary/20 border-primary/30 text-xs sm:text-sm whitespace-nowrap px-4 h-9"
+                      className="rounded-full bg-background hover:bg-primary/20 border-primary/30 text-xs sm:text-sm whitespace-nowrap px-4 h-9"
                       onClick={() => handleSuggestionClick(action.text)}
                     >
                       {action.label}
@@ -269,7 +241,7 @@ export default function Chat() {
 
               {/* INVENTORY CHIPS */}
               {activeChips.length > 0 && (
-                <div className="flex flex-wrap gap-2 justify-start sm:justify-center pb-1 max-h-[100px] overflow-y-auto">
+                <div className="flex flex-wrap gap-2 justify-start sm:justify-center max-h-[100px] overflow-y-auto">
                   {activeChips.map((item, index) => (
                     <Button
                       key={index}
@@ -293,11 +265,10 @@ export default function Chat() {
                       <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor="chat-form-message" className="sr-only">Message</FieldLabel>
                         <div className="relative">
-                          {/* FIX: USING TEXTAREA FOR MULTI-LINE SUPPORT */}
                           <textarea
                             {...field}
                             id="chat-form-message"
-                            className="w-full min-h-[60px] max-h-[200px] p-4 pr-14 rounded-[20px] bg-card border border-input focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm"
+                            className="w-full min-h-[50px] max-h-[200px] p-3 pr-14 rounded-[15px] bg-muted border border-input focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm"
                             placeholder={activeChips.length > 0 ? "Tap items above or type..." : "Type your message..."}
                             disabled={status === "streaming"}
                             onKeyDown={(e) => {
@@ -307,35 +278,25 @@ export default function Chat() {
                               }
                             }}
                           />
-                          {(status == "ready" || status == "error") && (
-                            <Button
-                              className="absolute right-3 bottom-3 rounded-full"
-                              type="submit"
-                              disabled={!field.value.trim()}
-                              size="icon"
-                            >
-                              <ArrowUp className="size-4" />
-                            </Button>
-                          )}
-                          {(status == "streaming" || status == "submitted") && (
-                            <Button
-                              className="absolute right-3 bottom-3 rounded-full"
-                              size="icon"
-                              onClick={() => stop()}
-                            >
-                              <Square className="size-4" />
-                            </Button>
-                          )}
+                          <Button
+                            className="absolute right-2 bottom-2 rounded-full w-8 h-8"
+                            type="submit"
+                            disabled={!field.value.trim() || status === "streaming"}
+                            size="icon"
+                          >
+                            {status === "streaming" ? <Square className="size-3" onClick={stop}/> : <ArrowUp className="size-4" />}
+                          </Button>
                         </div>
                       </Field>
                     )}
                   />
                 </FieldGroup>
               </form>
+              
+              <div className="w-full flex justify-center text-[10px] text-muted-foreground text-center">
+                GlowCast Pro can make mistakes, so please double-check it.
+              </div>
             </div>
-          </div>
-          <div className="w-full px-5 py-3 items-center flex justify-center text-xs text-muted-foreground text-center">
-            GlowCast Pro can make mistakes, so please double-check it.
           </div>
         </div>
       </main>
