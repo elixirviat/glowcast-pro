@@ -50,6 +50,20 @@ const formSchema = z.object({
 
 const STORAGE_KEY = 'chat-messages';
 
+// --- HELPER: Get clean text from ANY message type ---
+const getMessageText = (message: UIMessage): string => {
+  if (!message) return "";
+  if (typeof message.content === 'string') return message.content.toLowerCase();
+  if (message.parts && Array.isArray(message.parts)) {
+    return message.parts
+      .filter(p => p.type === 'text')
+      .map(p => p.text)
+      .join(' ')
+      .toLowerCase();
+  }
+  return "";
+};
+
 const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<string, number> } => {
   if (typeof window === 'undefined') return { messages: [], durations: {} };
   try {
@@ -138,40 +152,42 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
-  // --- 3. LOGIC REPAIR (USER-INTENT BASED) ---
+  // --- 3. PURE USER INTENT LOGIC ---
+  
+  // We need to look at the LAST message sent by the USER (messages.length - 2)
+  // because the last message (messages.length - 1) is the AI asking the question.
+  const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null;
+  const userText = userLastMessage && userLastMessage.role === "user" ? getMessageText(userLastMessage) : "";
+
+  // Check the AI's last message just to ensure we aren't showing buttons on the Final Report
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-  const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null; // Get what USER said
-  
-  const aiText = lastMessage && lastMessage.role === "assistant" 
-    ? (lastMessage.parts[0].type === 'text' ? lastMessage.parts[0].text.toLowerCase() : '') 
-    : "";
-  
-  const userText = userLastMessage && userLastMessage.role === "user"
-    ? (userLastMessage.parts[0].type === 'text' ? userLastMessage.parts[0].text.toLowerCase() : '')
-    : "";
+  const aiText = lastMessage && lastMessage.role === "assistant" ? getMessageText(lastMessage) : "";
+  const isFinalReport = aiText.includes("forecast") || aiText.includes("strategy") || aiText.includes("routine");
 
   const showLocations = messages.length === 1;
 
-  // Rule: Only show inventory chips if AI is asking about "products", "packing", or "stash"
-  const isInventoryQuestion = aiText.includes("product") || aiText.includes("packing") || aiText.includes("list");
-
-  // Rule: Decide WHICH chips based on what the USER said previously ("Skincare", "Makeup")
   let activeChips: string[] = [];
 
-  if (isInventoryQuestion && !showLocations) {
+  // LOGIC: If the AI is NOT finishing the chat, we check what the User just said.
+  if (!showLocations && !isFinalReport) {
+      // If User just said "Skincare", show Skincare Chips
       if (userText.includes("skincare") && !userText.includes("makeup") && !userText.includes("both")) {
           activeChips = SKINCARE_CHIPS;
-      } else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
+      } 
+      // If User just said "Makeup", show Makeup Chips
+      else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
           activeChips = MAKEUP_CHIPS;
-      } else {
-          // If they said "Both" OR if we are unsure -> Show ALL chips
-          activeChips = ALL_CHIPS; 
+      } 
+      // If User said "Both" or we aren't sure, show ALL Chips
+      else if (userText.includes("both") || (userText.includes("skincare") && userText.includes("makeup"))) {
+          activeChips = ALL_CHIPS;
       }
   }
 
   return (
     <div className="flex h-screen items-center justify-center font-sans dark:bg-black">
       <main className="w-full dark:bg-black h-screen relative">
+        {/* Header */}
         <div className="fixed top-0 left-0 right-0 z-50 bg-linear-to-b from-background via-background/50 to-transparent dark:bg-black overflow-visible pb-4">
           <div className="relative overflow-visible">
             <ChatHeader>
@@ -193,6 +209,7 @@ export default function Chat() {
           </div>
         </div>
 
+        {/* Chat Area */}
         <div className="h-screen overflow-y-auto px-5 py-4 w-full pt-[88px] pb-64">
           <div className="flex flex-col items-center justify-end min-h-full">
             {isClient ? (
@@ -219,12 +236,14 @@ export default function Chat() {
           </div>
         </div>
 
+        {/* Footer Input Area */}
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-linear-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-4 pb-6">
           <div className="w-full px-5 items-center flex flex-col justify-center relative overflow-visible">
             <div className="message-fade-overlay" />
             
             <div className="max-w-3xl w-full space-y-3 bg-background/80 backdrop-blur-md p-4 rounded-xl border border-border shadow-lg">
               
+              {/* LOCATION CHIPS */}
               {showLocations && (
                 <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
                   {LOCATION_SUGGESTIONS.map((action, index) => (
@@ -240,6 +259,7 @@ export default function Chat() {
                 </div>
               )}
 
+              {/* INVENTORY CHIPS */}
               {activeChips.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-start sm:justify-center max-h-[100px] overflow-y-auto">
                   {activeChips.map((item, index) => (
