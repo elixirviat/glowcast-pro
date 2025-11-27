@@ -32,12 +32,6 @@ const LOCATION_SUGGESTIONS = [
   { label: "New York 🍎", text: "I am going to New York, USA" },
 ];
 
-const CATEGORY_CHIPS = [
-  { label: "Skincare 🧴", text: "Skincare" },
-  { label: "Makeup 💄", text: "Makeup" },
-  { label: "Both ✨", text: "Both" },
-];
-
 const SKINCARE_CHIPS = [
   "Cleanser", "Toner", "Vitamin C", "Retinol", "Heavy Cream", 
   "Gel Moisturizer", "Face Oil", "SPF 50+", "Acne Treatment", "Eye Cream"
@@ -56,10 +50,11 @@ const formSchema = z.object({
 
 const STORAGE_KEY = 'chat-messages';
 
-// --- HELPER: Get clean text from ANY message type ---
+// --- FIXED HELPER: Removed all references to .content ---
 const getMessageText = (message: UIMessage): string => {
   if (!message) return "";
-  if (typeof message.content === 'string') return message.content.toLowerCase();
+  
+  // ONLY use parts array. This is safe for your SDK version.
   if (message.parts && Array.isArray(message.parts)) {
     return message.parts
       .filter(p => p.type === 'text')
@@ -118,22 +113,18 @@ export default function Chat() {
     setDurations((prev) => ({ ...prev, [key]: duration }));
   };
 
-  // --- WELCOME MESSAGE LOGIC (Fixed for Reloads) ---
   useEffect(() => {
-    if (isClient && messages.length === 0 && !welcomeMessageShownRef.current) {
-      // Small delay to ensure state is clear
-      setTimeout(() => {
-        const welcomeMessage: UIMessage = {
-          id: `welcome-${Date.now()}`,
-          role: "assistant",
-          parts: [{ type: "text", text: WELCOME_MESSAGE }],
-        };
-        setMessages([welcomeMessage]);
-        saveMessagesToStorage([welcomeMessage], {});
-        welcomeMessageShownRef.current = true;
-      }, 100);
+    if (isClient && initialMessages.length === 0 && !welcomeMessageShownRef.current) {
+      const welcomeMessage: UIMessage = {
+        id: `welcome-${Date.now()}`,
+        role: "assistant",
+        parts: [{ type: "text", text: WELCOME_MESSAGE }],
+      };
+      setMessages([welcomeMessage]);
+      saveMessagesToStorage([welcomeMessage], {});
+      welcomeMessageShownRef.current = true;
     }
-  }, [isClient, messages.length, setMessages]);
+  }, [isClient, initialMessages.length, setMessages]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -155,54 +146,31 @@ export default function Chat() {
     form.setValue("message", current + separator + item);
   }
 
-  // --- FIX: CLEAR CHAT LOGIC ---
   function clearChat() {
     setMessages([]);
     setDurations({});
     saveMessagesToStorage([], {});
-    welcomeMessageShownRef.current = false; // RESET THE LOCK so welcome msg shows again
     toast.success("Chat cleared");
   }
 
-  // --- LOGIC ENGINE ---
+  // --- 3. STRICT USER-DEPENDENT LOGIC ---
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null;
-  
-  const aiText = lastMessage && lastMessage.role === "assistant" ? getMessageText(lastMessage) : "";
   const userText = userLastMessage && userLastMessage.role === "user" ? getMessageText(userLastMessage) : "";
+  const aiText = lastMessage && lastMessage.role === "assistant" ? getMessageText(lastMessage) : "";
+  const isFinalReport = aiText.includes("forecast") || aiText.includes("strategy") || aiText.includes("routine");
 
-  const showLocations = messages.length === 1; // Only welcome message is present
-
-  // 1. Detect Category Question (AI asks "Skincare, Makeup or Both?")
-  const isCategoryQuestion = aiText.includes("skincare") && aiText.includes("makeup") && aiText.includes("both");
-
-  // 2. Detect Inventory Question (AI asks "packing", "products", "stash")
-  const isInventoryQuestion = 
-    aiText.includes("product") || 
-    aiText.includes("packing") || 
-    aiText.includes("list") || 
-    aiText.includes("stash") || 
-    aiText.includes("bring");
-
-  const isFinalReport = aiText.includes("forecast") || aiText.includes("strategy");
+  const showLocations = messages.length === 1;
 
   let activeChips: string[] = [];
-  let showCategoryButtons = false;
 
   if (!showLocations && !isFinalReport) {
-      if (isCategoryQuestion) {
-          // AI just asked "Skincare or Makeup?" -> Show Category Buttons
-          showCategoryButtons = true;
-      } 
-      else if (isInventoryQuestion) {
-          // AI just asked for Products -> Decide based on User's previous answer
-          if (userText.includes("skincare") && !userText.includes("makeup") && !userText.includes("both")) {
-              activeChips = SKINCARE_CHIPS;
-          } else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
-              activeChips = MAKEUP_CHIPS;
-          } else {
-              activeChips = ALL_CHIPS; // Fallback or "Both"
-          }
+      if (userText.includes("skincare") && !userText.includes("makeup") && !userText.includes("both")) {
+          activeChips = SKINCARE_CHIPS;
+      } else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
+          activeChips = MAKEUP_CHIPS;
+      } else if (userText.includes("both") || (userText.includes("skincare") && userText.includes("makeup"))) {
+          activeChips = ALL_CHIPS;
       }
   }
 
@@ -265,7 +233,7 @@ export default function Chat() {
             
             <div className="max-w-3xl w-full space-y-3 bg-background/80 backdrop-blur-md p-4 rounded-xl border border-border shadow-lg">
               
-              {/* 1. LOCATION CHIPS (Start) */}
+              {/* LOCATION CHIPS */}
               {showLocations && (
                 <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
                   {LOCATION_SUGGESTIONS.map((action, index) => (
@@ -281,23 +249,7 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* 2. CATEGORY CHIPS (Middle Step) */}
-              {showCategoryButtons && (
-                <div className="flex gap-2 justify-center w-full">
-                  {CATEGORY_CHIPS.map((cat, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="rounded-full bg-background hover:bg-primary/20 border-primary/30 text-sm px-6 h-10 shadow-sm"
-                      onClick={() => handleSuggestionClick(cat.text)}
-                    >
-                      {cat.label}
-                    </Button>
-                  ))}
-                </div>
-              )}
-
-              {/* 3. INVENTORY CHIPS (Last Step) */}
+              {/* INVENTORY CHIPS */}
               {activeChips.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-start sm:justify-center max-h-[100px] overflow-y-auto">
                   {activeChips.map((item, index) => (
