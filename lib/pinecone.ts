@@ -22,8 +22,8 @@ export async function searchPinecone(
     // Search Pinecone (without embedding generation for now)
     const searchResults = await index.query({
       topK: 5,
-      includeMetadata: true,
-      namespace: "default"
+      includeMetadata: true
+      // REMOVED namespace line - that's causing the error!
     });
 
     // Format results with IMAGE SUPPORT
@@ -47,3 +47,4 @@ export async function searchPinecone(
     return 'No relevant information found.';
   }
 }
+
