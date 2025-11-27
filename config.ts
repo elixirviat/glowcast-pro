@@ -56,3 +56,5 @@ export const MODERATION_DENIAL_MESSAGE_SELF_HARM_INSTRUCTIONS = "I can't provide
 export const MODERATION_DENIAL_MESSAGE_VIOLENCE = "I can't discuss violent content. Please ask something else.";
 export const MODERATION_DENIAL_MESSAGE_VIOLENCE_GRAPHIC = "I can't discuss graphic violent content. Please ask something else.";
 export const MODERATION_DENIAL_MESSAGE_DEFAULT = "Your message violates our guidelines. I can't answer that.";
+// ADD THIS NEW LINE:
+export const MODERATION_DENIAL_MESSAGE_SCOPE = "I specialize strictly in Travel Beauty (Skincare & Makeup). I cannot assist with general travel booking, fashion, or food recommendations.";
