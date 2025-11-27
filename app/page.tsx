@@ -164,8 +164,20 @@ export default function Chat() {
   const lastText = lastMessage && lastMessage.role === "assistant" ? lastMessage.parts[0].type === 'text' ? lastMessage.parts[0].text : '' : "";
 
   // Detect context based on your specific Prompt Phrasing
-  const showSkincareChips = lastText.includes("filter out the bad ones") || lastText.includes("specific activities are on the agenda");
-  const showMakeupChips = lastText.includes("aesthetic right") || lastText.includes("key products are you packing");
+// --- 3. DETERMINE WHICH CHIPS TO SHOW (FUZZY MATCHING) ---
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const lastText = lastMessage && lastMessage.role === "assistant" 
+    ? (lastMessage.parts[0].type === 'text' ? lastMessage.parts[0].text.toLowerCase() : '') 
+    : "";
+
+  // RELAXED LOGIC: Check for keywords instead of full sentences
+  const isAskingForInventory = lastText.includes("products") || lastText.includes("packing") || lastText.includes("inventory");
+  const isSkincareContext = lastText.includes("skin type") || lastText.includes("skincare");
+  const isMakeupContext = lastText.includes("finish") || lastText.includes("makeup") || lastText.includes("aesthetic");
+
+  // Logic: If asking for inventory, decide which list to show
+  const showSkincareChips = isAskingForInventory && (isSkincareContext || !isMakeupContext); // Default to skincare if unsure
+  const showMakeupChips = isAskingForInventory && isMakeupContext;
   
   // If we are showing inventory chips, use that list. If it's the welcome screen, use locations.
   const activeChips = showSkincareChips ? SKINCARE_CHIPS 
