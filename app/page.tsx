@@ -18,7 +18,9 @@ import { ChatHeader, ChatHeaderBlock } from "@/app/parts/chat-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UIMessage } from "ai";
 import { useEffect, useState, useRef } from "react";
-import { AI_NAME, CLEAR_CHAT_TEXT, WELCOME_MESSAGE } from "@/config";
+import { AI_NAME, CLEAR_CHAT_TEXT, WELCOME_MESSAGE } from "../config";
+import Image from "next/image";
+import Link from "next/link";
 
 // --- 1. CONFIGURATION DATA ---
 
@@ -30,7 +32,6 @@ const LOCATION_SUGGESTIONS = [
   { label: "New York 🍎", text: "I am going to New York, USA" },
 ];
 
-// NEW: Category Chips (Style: Pills)
 const CATEGORY_CHIPS = [
   { label: "Skincare 🧴", text: "Skincare" },
   { label: "Makeup 💄", text: "Makeup" },
@@ -59,6 +60,7 @@ const STORAGE_KEY = 'chat-messages';
 const getMessageText = (message: UIMessage): string => {
   if (!message) return "";
   if (typeof message.content === 'string') return message.content.toLowerCase();
+  
   if (message.parts && Array.isArray(message.parts)) {
     return message.parts
       .filter(p => p.type === 'text')
@@ -92,14 +94,10 @@ const saveMessagesToStorage = (messages: UIMessage[], durations: Record<string, 
 export default function Chat() {
   const [isClient, setIsClient] = useState(false);
   const [durations, setDurations] = useState<Record<string, number>>({});
+  const welcomeMessageShownRef = useRef<boolean>(false);
   
-  // Load storage safely
-  const stored = typeof window !== 'undefined' ? loadMessagesFromStorage() : { messages: [], durations: {} };
-  const [initialMessages] = useState<UIMessage[]>(stored.messages as any || []);
-
-  // --- CRITICAL FIX: 'as any' bypasses the TypeScript error ---
   const { messages, sendMessage, status, stop, setMessages } = useChat({
-    messages: initialMessages as any, 
+    messages: [],
   });
 
   const getWelcomeMessage = (): UIMessage => ({
@@ -108,21 +106,22 @@ export default function Chat() {
     parts: [{ type: "text", text: WELCOME_MESSAGE }],
   });
 
+  // 2. INITIAL LOAD
   useEffect(() => {
     setIsClient(true);
-    setDurations(stored.durations);
-    setMessages(stored.messages as any);
+    const stored = loadMessagesFromStorage();
+
+    if (stored.messages.length > 0) {
+      setMessages(stored.messages as any);
+      setDurations(stored.durations);
+    } else {
+      const welcomeMsg = getWelcomeMessage();
+      setMessages([welcomeMsg] as any);
+      saveMessagesToStorage([welcomeMsg], {});
+    }
   }, []);
 
-  // Initialize Welcome Message if empty
-  useEffect(() => {
-    if (isClient && messages.length === 0 && initialMessages.length === 0) {
-       const welcomeMsg = getWelcomeMessage();
-       setMessages([welcomeMsg] as any);
-       saveMessagesToStorage([welcomeMsg], {});
-    }
-  }, [isClient]);
-
+  // 3. PERSISTENCE
   useEffect(() => {
     if (isClient) {
       saveMessagesToStorage(messages, durations);
@@ -158,6 +157,7 @@ export default function Chat() {
     setMessages([welcomeMsg] as any);
     setDurations({});
     saveMessagesToStorage([welcomeMsg], {});
+    welcomeMessageShownRef.current = false;
     toast.success("Chat cleared");
   }
 
@@ -169,9 +169,8 @@ export default function Chat() {
 
   const showLocations = messages.length === 1 && messages[0].role === "assistant";
 
-  // Logic: Show Category Chips if AI asks about skincare/makeup
-  // Loosened logic: Checks if AI mentions "skincare" AND "makeup"
-  const isCategoryQuestion = aiText.includes("skincare") && aiText.includes("makeup");
+  // Logic: Detect questions
+  const isCategoryQuestion = aiText.includes("skincare") && aiText.includes("makeup") && aiText.includes("both");
   
   const isInventoryQuestion = 
     aiText.includes("product") || 
@@ -179,6 +178,7 @@ export default function Chat() {
     aiText.includes("list") || 
     aiText.includes("stash") || 
     aiText.includes("bring");
+    
   const isFinalReport = aiText.includes("forecast") || aiText.includes("strategy");
 
   let activeChips: string[] = [];
@@ -199,12 +199,11 @@ export default function Chat() {
       }
   }
 
-  // --- UI RETURN ---
   return (
     <div className="flex h-screen items-center justify-center font-sans dark:bg-black">
       <main className="w-full dark:bg-black h-screen relative">
         {/* Header */}
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-background via-background/50 to-transparent dark:bg-black overflow-visible pb-4">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-linear-to-b from-background via-background/50 to-transparent dark:bg-black overflow-visible pb-4">
           <div className="relative overflow-visible">
             <ChatHeader>
               <ChatHeaderBlock />
@@ -253,13 +252,13 @@ export default function Chat() {
         </div>
 
         {/* Footer Input Area */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-4 pb-6">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-linear-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-4 pb-6">
           <div className="w-full px-5 items-center flex flex-col justify-center relative overflow-visible">
             <div className="message-fade-overlay" />
             
             <div className="max-w-3xl w-full space-y-3 bg-background/80 backdrop-blur-md p-4 rounded-xl border border-border shadow-lg">
               
-              {/* 1. LOCATION CHIPS (Condition: Welcome Message only) */}
+              {/* 1. LOCATION CHIPS (PILLS) */}
               {showLocations && (
                 <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
                   {LOCATION_SUGGESTIONS.map((action, index) => (
@@ -275,15 +274,15 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* 2. CATEGORY CHIPS (Condition: Skincare/Makeup Question) */}
-              {/* STYLE: Small Pills, No Plus Sign */}
+              {/* 2. CATEGORY BUTTONS (UPDATED TO PILLS) */}
               {showCategoryButtons && (
                 <div className="flex gap-2 justify-center w-full pb-2">
                   {CATEGORY_CHIPS.map((cat, index) => (
                     <Button
                       key={index}
                       variant="outline"
-                      className="rounded-full bg-background hover:bg-primary/20 border-primary/30 text-sm whitespace-nowrap px-6 h-9"
+                      // Changed from large square tiles to matching pill-shaped buttons
+                      className="rounded-full bg-background hover:bg-primary/20 border-primary/30 text-xs sm:text-sm whitespace-nowrap px-4 h-9"
                       onClick={() => handleSuggestionClick(cat.text)}
                     >
                       {cat.label}
@@ -292,8 +291,7 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* 3. INVENTORY CHIPS (Condition: Asking for products) */}
-              {/* STYLE: Has Plus Sign (+) */}
+              {/* 3. INVENTORY CHIPS */}
               {activeChips.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-start sm:justify-center max-h-[100px] overflow-y-auto">
                   {activeChips.map((item, index) => (
