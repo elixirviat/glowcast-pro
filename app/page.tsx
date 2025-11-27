@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useChat } from "@ai-sdk/react";
-import { ArrowUp, Eraser, Loader2, Plus, PlusIcon, Square } from "lucide-react";
+import { ArrowUp, Loader2, Plus, Square } from "lucide-react"; // Removed unused imports
 import { MessageWall } from "@/components/messages/message-wall";
 import { ChatHeader } from "@/app/parts/chat-header";
 import { ChatHeaderBlock } from "@/app/parts/chat-header";
@@ -23,6 +23,15 @@ import { useEffect, useState, useRef } from "react";
 import { AI_NAME, CLEAR_CHAT_TEXT, OWNER_NAME, WELCOME_MESSAGE } from "@/config";
 import Image from "next/image";
 import Link from "next/link";
+
+// --- 1. DEFINE YOUR POPULAR DESTINATIONS HERE ---
+const SUGGESTED_ACTIONS = [
+  { label: "Bali, Indonesia 🌴", text: "I am going to Bali, Indonesia" },
+  { label: "Paris, France 🥐", text: "I am going to Paris, France" },
+  { label: "Aspen, USA ❄️", text: "I am going to Aspen, USA" },
+  { label: "Tokyo, Japan 🍣", text: "I am going to Tokyo, Japan" },
+  { label: "New York, USA 🍎", text: "I am going to New York, USA" },
+];
 
 const formSchema = z.object({
   message: z
@@ -102,12 +111,7 @@ export default function Chat() {
       const welcomeMessage: UIMessage = {
         id: `welcome-${Date.now()}`,
         role: "assistant",
-        parts: [
-          {
-            type: "text",
-            text: WELCOME_MESSAGE,
-          },
-        ],
+        parts: [{ type: "text", text: WELCOME_MESSAGE }],
       };
       setMessages([welcomeMessage]);
       saveMessagesToStorage([welcomeMessage], {});
@@ -117,14 +121,17 @@ export default function Chat() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      message: "",
-    },
+    defaultValues: { message: "" },
   });
 
   function onSubmit(data: z.infer<typeof formSchema>) {
     sendMessage({ text: data.message });
     form.reset();
+  }
+
+  // --- 2. HANDLE BUTTON CLICKS ---
+  function handleSuggestionClick(text: string) {
+    sendMessage({ text });
   }
 
   function clearChat() {
@@ -144,9 +151,7 @@ export default function Chat() {
             <ChatHeader>
               <ChatHeaderBlock />
               <ChatHeaderBlock className="justify-center items-center">
-                <Avatar
-                  className="size-8 ring-1 ring-primary"
-                >
+                <Avatar className="size-8 ring-1 ring-primary">
                   <AvatarImage src="https://i.ibb.co/ccdTwRh4/GlowCast.png" />
                   <AvatarFallback>
                     <Image src="https://i.ibb.co/ccdTwRh4/GlowCast.png" alt="Logo" width={36} height={36} />
@@ -155,12 +160,7 @@ export default function Chat() {
                 <p className="tracking-tight">Chat with {AI_NAME}</p>
               </ChatHeaderBlock>
               <ChatHeaderBlock className="justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer"
-                  onClick={clearChat}
-                >
+                <Button variant="outline" size="sm" className="cursor-pointer" onClick={clearChat}>
                   <Plus className="size-4" />
                   {CLEAR_CHAT_TEXT}
                 </Button>
@@ -168,6 +168,7 @@ export default function Chat() {
             </ChatHeader>
           </div>
         </div>
+
         <div className="h-screen overflow-y-auto px-5 py-4 w-full pt-[88px] pb-[150px]">
           <div className="flex flex-col items-center justify-end min-h-full">
             {isClient ? (
@@ -193,10 +194,29 @@ export default function Chat() {
             )}
           </div>
         </div>
+
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-linear-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-13">
-          <div className="w-full px-5 pt-5 pb-1 items-center flex justify-center relative overflow-visible">
+          <div className="w-full px-5 pt-5 pb-1 items-center flex flex-col justify-center relative overflow-visible">
             <div className="message-fade-overlay" />
-            <div className="max-w-3xl w-full">
+            
+            <div className="max-w-3xl w-full space-y-4"> {/* Added space-y-4 for gap between buttons and input */}
+              
+              {/* --- 3. RENDER BUTTONS IF CHAT IS EMPTY --- */}
+              {messages.length === 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-2 w-full no-scrollbar justify-start sm:justify-center">
+                  {SUGGESTED_ACTIONS.map((action, index) => (
+                    <Button
+                      key={index}
+                      variant="outline" // Uses your Light Blue border!
+                      className="rounded-full bg-background/80 hover:bg-primary/20 border-primary/30 text-xs sm:text-sm whitespace-nowrap px-4 h-9"
+                      onClick={() => handleSuggestionClick(action.text)}
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
               <form id="chat-form" onSubmit={form.handleSubmit(onSubmit)}>
                 <FieldGroup>
                   <Controller
@@ -204,9 +224,7 @@ export default function Chat() {
                     control={form.control}
                     render={({ field, fieldState }) => (
                       <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor="chat-form-message" className="sr-only">
-                          Message
-                        </FieldLabel>
+                        <FieldLabel htmlFor="chat-form-message" className="sr-only">Message</FieldLabel>
                         <div className="relative h-13">
                           <Input
                             {...field}
@@ -237,9 +255,7 @@ export default function Chat() {
                             <Button
                               className="absolute right-2 top-2 rounded-full"
                               size="icon"
-                              onClick={() => {
-                                stop();
-                              }}
+                              onClick={() => stop()}
                             >
                               <Square className="size-4" />
                             </Button>
@@ -252,7 +268,6 @@ export default function Chat() {
               </form>
             </div>
           </div>
-          {/* FIX: Updated Footer to match Google Gemini Style */}
           <div className="w-full px-5 py-3 items-center flex justify-center text-xs text-muted-foreground text-center">
             GlowCast Pro can make mistakes, so please double-check it.
           </div>
