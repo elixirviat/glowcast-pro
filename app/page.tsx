@@ -19,8 +19,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UIMessage } from "ai";
 import { useEffect, useState, useRef } from "react";
 import { AI_NAME, CLEAR_CHAT_TEXT, WELCOME_MESSAGE } from "../config";
-import Image from "next/image";
-import Link from "next/link";
 
 // --- 1. CONFIGURATION DATA ---
 
@@ -59,10 +57,7 @@ const STORAGE_KEY = 'chat-messages';
 // --- HELPER: Get clean text ---
 const getMessageText = (message: UIMessage): string => {
   if (!message) return "";
-  
-  // Cast to 'any' to avoid strict TypeScript checks on the 'content' property
-  const content = (message as any).content;
-  if (typeof content === 'string') return content.toLowerCase();
+  if (typeof message.content === 'string') return message.content.toLowerCase();
   
   if (message.parts && Array.isArray(message.parts)) {
     return message.parts
@@ -99,8 +94,9 @@ export default function Chat() {
   const [durations, setDurations] = useState<Record<string, number>>({});
   const welcomeMessageShownRef = useRef<boolean>(false);
   
-  // FIX: Removed { messages: [] } to prevent TypeScript from inferring 'never[]'
-  const { messages, sendMessage, status, stop, setMessages } = useChat();
+  const { messages, sendMessage, status, stop, setMessages } = useChat({
+    messages: [],
+  });
 
   const getWelcomeMessage = (): UIMessage => ({
     id: `welcome-${Date.now()}`,
@@ -126,7 +122,7 @@ export default function Chat() {
   // 3. PERSISTENCE
   useEffect(() => {
     if (isClient) {
-      saveMessagesToStorage(messages as unknown as UIMessage[], durations);
+      saveMessagesToStorage(messages, durations);
     }
   }, [durations, messages, isClient]);
 
@@ -163,38 +159,54 @@ export default function Chat() {
     toast.success("Chat cleared");
   }
 
-  // --- LOGIC ENGINE (FIXED) ---
-  // We use casting 'as UIMessage | undefined' to stop the 'never' type error.
-  const lastMessage = messages[messages.length - 1] as UIMessage | undefined;
-  const userLastMessage = messages.length > 1 ? messages[messages.length - 2] as UIMessage | undefined : undefined;
-  
-  // Use optional chaining (?.) so it doesn't crash if undefined
-  const userText = userLastMessage?.role === "user" ? getMessageText(userLastMessage) : "";
-  const aiText = lastMessage?.role === "assistant" ? getMessageText(lastMessage) : "";
+  // --- LOGIC ENGINE (UPDATED) ---
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const userLastMessage = messages.length > 1 ? messages[messages.length - 2] : null;
+  const userText = userLastMessage && userLastMessage.role === "user" ? getMessageText(userLastMessage) : "";
+  const aiText = lastMessage && lastMessage.role === "assistant" ? getMessageText(lastMessage) : "";
 
-  // Helper check for location suggestion
-  const showLocations = messages.length === 1 && (messages[0] as UIMessage).role === "assistant";
+  const showLocations = messages.length === 1 && messages[0].role === "assistant";
 
-  // Logic: Detect questions
+  // 1. Detect Category Selection Question
   const isCategoryQuestion = aiText.includes("skincare") && aiText.includes("makeup") && aiText.includes("both");
-  
+
+  // 2. Detect Clarifying Questions (Skin Type, Activities, Finish)
+  // If the AI is asking these, we MUST hide all chips.
+  const isClarifyingQuestion = 
+    aiText.includes("skin type") || 
+    aiText.includes("oily") || 
+    aiText.includes("activities") || 
+    aiText.includes("finish") || 
+    aiText.includes("agenda") ||
+    aiText.includes("matte");
+
+  // 3. Detect Inventory Question
+  // We removed "list" to prevent "Great list!" from triggering this.
+  // We strictly check that we are NOT in the clarifying phase.
   const isInventoryQuestion = 
-    aiText.includes("product") || 
-    aiText.includes("packing") || 
-    aiText.includes("list") || 
-    aiText.includes("stash") || 
-    aiText.includes("bring");
+    !isClarifyingQuestion && (
+      aiText.includes("product") || 
+      aiText.includes("packing") || 
+      aiText.includes("stash") || 
+      aiText.includes("bring") ||
+      aiText.includes("routine")
+    );
     
   const isFinalReport = aiText.includes("forecast") || aiText.includes("strategy");
 
   let activeChips: string[] = [];
   let showCategoryButtons = false;
 
+  // The Logic Router
   if (!showLocations && !isFinalReport) {
       if (isCategoryQuestion) {
           showCategoryButtons = true;
       } 
       else if (isInventoryQuestion) {
+          // Logic to decide which inventory chips to show based on previous user input
+          // We look back at history or infer from the context
+          // Since we want to remember what they picked earlier (Skincare vs Makeup),
+          // we usually rely on the userText, but if we are deep in convo, we might default to ALL
           if (userText.includes("skincare") && !userText.includes("makeup") && !userText.includes("both")) {
               activeChips = SKINCARE_CHIPS;
           } else if (userText.includes("makeup") && !userText.includes("skincare") && !userText.includes("both")) {
@@ -203,6 +215,7 @@ export default function Chat() {
               activeChips = ALL_CHIPS;
           }
       }
+      // Implicitly: If isClarifyingQuestion is true, we fall through, showing NO chips.
   }
 
   return (
@@ -235,7 +248,7 @@ export default function Chat() {
           <div className="flex flex-col items-center justify-end min-h-full">
             {isClient ? (
               <>
-                <MessageWall messages={messages as unknown as UIMessage[]} status={status} durations={durations} onDurationChange={handleDurationChange} />
+                <MessageWall messages={messages} status={status} durations={durations} onDurationChange={handleDurationChange} />
                 {status === "submitted" && (
                   <div className="flex justify-start max-w-3xl w-full mt-4">
                     <div className="flex gap-3">
@@ -280,17 +293,20 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* 2. CATEGORY CHIPS */}
+              {/* 2. CATEGORY BUTTONS */}
               {showCategoryButtons && (
-                <div className="flex gap-2 justify-center w-full pb-2">
+                <div className="flex gap-4 justify-center w-full pb-2">
                   {CATEGORY_CHIPS.map((cat, index) => (
                     <Button
                       key={index}
                       variant="outline"
-                      className="rounded-full bg-background hover:bg-primary/20 border-primary/30 text-xs sm:text-sm whitespace-nowrap px-4 h-9"
+                      className="flex flex-col gap-2 h-24 w-24 rounded-xl border-2 border-muted-foreground/20 hover:border-primary hover:bg-primary/5 hover:scale-105 transition-all shadow-sm"
                       onClick={() => handleSuggestionClick(cat.text)}
                     >
-                      {cat.label}
+                      <span className="text-2xl">{cat.label.split(" ")[1]}</span>
+                      <span className="font-semibold text-xs uppercase tracking-wide">
+                        {cat.label.split(" ")[0]}
+                      </span>
                     </Button>
                   ))}
                 </div>
