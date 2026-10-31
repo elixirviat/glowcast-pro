@@ -236,7 +236,7 @@ const VISUAL_TIPS_CHIP = [
               <ChatHeaderBlock />
               <ChatHeaderBlock className="justify-center items-center">
                 <Avatar className="size-8 ring-1 ring-primary">
-                  <AvatarImage src="https://i.ibb.co/ccdTwRh4/GlowCast.png" />
+                  <AvatarImage src="/icon-192.png" />
                   <AvatarFallback>GC</AvatarFallback>
                 </Avatar>
                 <p className="tracking-tight">Chat with {AI_NAME}</p>
@@ -261,7 +261,7 @@ const VISUAL_TIPS_CHIP = [
                   <div className="flex justify-start max-w-3xl w-full mt-4">
                     <div className="flex gap-3">
                         <Avatar className="size-8 ring-1 ring-primary">
-                            <AvatarImage src="https://i.ibb.co/ccdTwRh4/GlowCast.png" />
+                            <AvatarImage src="/icon-192.png" />
                         </Avatar>
                         <div className="flex items-center">
                             <Loader2 className="size-4 animate-spin text-muted-foreground" />
